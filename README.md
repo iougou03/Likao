@@ -58,3 +58,7 @@ struct chat_logs {
 * [json-c](https://github.com/json-c/json-c)
 
 * [gtk+-3](https://docs.gtk.org/gtk3/)
+
+## in Debugging
+
+password, name을 길게 입력하는 error handling
