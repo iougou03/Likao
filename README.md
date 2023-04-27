@@ -1,8 +1,19 @@
-server
--> main.c
--> usr/ : user 정보를 저장
--> chats/ : 채팅방 정보를 저장
--> logs/ : 채팅방 log를 저장
+
+# architecture
+
+## server file tree
+
+    main.c
+
+    usr/ : user 정보를 저장
+
+    chats/ : 채팅방 정보를 저장
+
+    logs/ : 채팅방 log를 저장
+
+## client file tree
+
+    main.c
 
 ## Data structure
 
@@ -30,13 +41,14 @@ struct chat_logs {
 }
 ```
 
-
 ### process
 
-1. client는 sign in, sign up 고름
+![image](https://user-images.githubusercontent.com/53176902/234831911-071c449d-1536-472c-af76-5bf4e1110274.png)
 
+
+
+#### 유의사항
 
 * 서버에 채팅 log저장시키기
-
 
 * 한 클라이언트의 메세지를 저장하는 동안에는 다른 클라이언트 채팅 불가
