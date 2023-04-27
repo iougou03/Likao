@@ -52,3 +52,9 @@ struct chat_logs {
 * 서버에 채팅 log저장시키기
 
 * 한 클라이언트의 메세지를 저장하는 동안에는 다른 클라이언트 채팅 불가
+
+## dependencies
+
+* [json-c](https://github.com/json-c/json-c)
+
+* [gtk+-3](https://docs.gtk.org/gtk3/)
