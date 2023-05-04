@@ -15,7 +15,7 @@ struct user_t
     char password[PASSWORD_MAX_LEN];
 };
 
-typedef const enum {
+typedef enum {
     SIGN_IN,
     SIGN_UP
 } msg_client_type;
@@ -27,7 +27,7 @@ struct msg_from_client_t
     char password[PASSWORD_MAX_LEN];
 };
 
-typedef const enum {
+typedef enum {
     SUCCESS,
     FAILED
 } msg_server_type;
