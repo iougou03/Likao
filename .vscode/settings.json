@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "chat.h": "c",
+        "util.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "enabled"
+}

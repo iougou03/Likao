@@ -18,27 +18,40 @@
 ## Data structure
 
 ```c
-#define MAX_TYPE_LEN 512
+#define DEFAULT_PORT 5500
 
-struct user_t {
-    char name;
-    char password;
-}
+#define NAME_MAX_LEN 512
+#define PASSWORD_MAX_LEN 512
 
-struct chat_t {
-    user_t users[];
-}
+struct user_t
+{
+    char name[NAME_MAX_LEN];
+    // char password[SHA256_DIGEST_LENGTH * 2 + 1]
+    char password[PASSWORD_MAX_LEN];
+};
 
-#define MAX_MSG_LEN 4096
+typedef const enum {
+    SIGN_IN,
+    SIGN_UP
+} msg_client_type;
 
-struct chat_msg {
-    char msg[MAX_MSG_LEN];
-    time_t created_at;
-}
+struct msg_from_client_t
+{
+    msg_client_type type;
+    char name[NAME_MAX_LEN];
+    char password[PASSWORD_MAX_LEN];
+};
 
-struct chat_logs {
-    messages chat_msg[];
-}
+typedef const enum {
+    SUCCESS,
+    FAILED
+} msg_server_type;
+
+struct msg_from_server_t
+{
+    msg_server_type type;
+    char* msg;
+};
 ```
 
 ### process
