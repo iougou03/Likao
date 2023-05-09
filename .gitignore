@@ -1,1 +1,5 @@
 *a.out
+
+src/server/usr/*
+src/server/logs/*
+src/server/chats/*
