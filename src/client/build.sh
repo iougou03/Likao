@@ -1,3 +1,3 @@
 #/bin/bash!
 
-gcc main.c -l json-c
+gcc main.c auth.c util.c -l json-c

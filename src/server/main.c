@@ -85,7 +85,6 @@ void server() {
         }
     }
 
-    close(client_socket_fd);
     close(socket_fd);
 }
 
@@ -121,22 +120,29 @@ void* sign_handler(void* client_sock_fdp) {
         sign_in(msg.name, msg.password);
     }
     else if (msg.type == SIGN_UP) {
-        sign_up(msg.name, msg.password);
+        if (sign_up(msg.name, msg.password) == -1) {
+            msg_server.type = FAILED;
+            strcpy(msg_server.msg, "there already signed user!");
+        }
+        else {
+            msg_server.type = SUCCESS;
+            strcpy(msg_server.msg, "you success to sign up!");
+        }
+
+        struct_to_json(send_json_obj, msg_server);
+
+        send(
+            client_sock_fd,
+            json_object_to_json_string(send_json_obj),
+            sizeof(struct msg_from_server_t),
+            0
+        );
     }
     
-    // msg_server.type = SUCCESS;
-    // strcpy(msg_server.msg, "you success!");
-
-    //     struct_to_json(send_json_obj, msg_server);
-    //     send(
-    //         client_sock_fd,
-    //         json_object_to_json_string(send_json_obj),
-    //         sizeof(struct msg_from_server_t),
-    //         0
-    //     );
     json_object_put(j_obj);
     json_object_put(send_json_obj);
     free(received_msg_raw);
+    close(client_sock_fd);
 }
 
 int main (int argc, char** argv) {
