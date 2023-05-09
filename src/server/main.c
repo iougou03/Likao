@@ -158,7 +158,25 @@ void* sign_handler(void* client_sock_fdp) {
 
     // TODO: sign handler
     if (msg.type == SIGN_IN) {
-        sign_in(msg.name, msg.password);
+        if(sign_in(msg.name, msg.password) == 0){
+            msg_server.type = SUCCESS;
+            strcpy(msg_server.msg, "you success to sign in!\n");
+        }
+        else {
+            msg_server.type = FAILED;
+            strcpy(msg_server.msg, "error!");
+        }
+
+        struct_to_json(send_json_obj, msg_server);
+
+        send(
+            client_sock_fd,
+            json_object_to_json_string(send_json_obj),
+            sizeof(struct msg_from_server_t),
+            0
+        );
+
+
     }
     else if (msg.type == SIGN_UP) {
         int flag = sign_up(msg.name, msg.password);
