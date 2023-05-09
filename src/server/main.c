@@ -12,6 +12,7 @@
 
 #include "../lib/chat.h"
 #include "util.h"
+#include "auth.h"
 
 int init(char* execute_name) {
     mode_t default_mode = 01762;
@@ -117,21 +118,22 @@ void* sign_handler(void* client_sock_fdp) {
 
     // TODO: sign handler
     if (msg.type == SIGN_IN) {
-
+        sign_in(msg.name, msg.password);
     }
     else if (msg.type == SIGN_UP) {
-        msg_server.type = SUCCESS;
-        strcpy(msg_server.msg, "you success!");
-
-        struct_to_json(send_json_obj, msg_server);
-        send(
-            client_sock_fd,
-            json_object_to_json_string(send_json_obj),
-            sizeof(struct msg_from_server_t),
-            0
-        );
+        sign_up(msg.name, msg.password);
     }
     
+    // msg_server.type = SUCCESS;
+    // strcpy(msg_server.msg, "you success!");
+
+    //     struct_to_json(send_json_obj, msg_server);
+    //     send(
+    //         client_sock_fd,
+    //         json_object_to_json_string(send_json_obj),
+    //         sizeof(struct msg_from_server_t),
+    //         0
+    //     );
     json_object_put(j_obj);
     json_object_put(send_json_obj);
     free(received_msg_raw);
