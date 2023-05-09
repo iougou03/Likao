@@ -22,46 +22,44 @@
 #include <json-c/json.h>
 
 int sign_in(char name[NAME_MAX_LEN], char password[PASSWORD_MAX_LEN]) {
+    if (chdir("usr") == -1) {
+        fprintf(stderr, "there error while entering usr/, check init()");
+        return -3;
+    }
     int flag = 0;
+    char *ext = ".json";
+    char *filename =  (char*)malloc(sizeof(char) * (strlen(name) + strlen(ext)));
 
-    char path[1024];
-    sprintf(path, "usr/%s.json", name);
+    strcpy(filename, name);
+    strcat(filename, ext);
 
-    FILE *fp = fopen(path, "r");
-    if (!fp) { 
-        return -1;
-    }
-    
-    // Read the JSON object from the file
-    struct json_object *root = json_object_from_file(fp);
-    if (!root) {
-        fprintf(stderr, "Failed to parse JSON\n");
-        fclose(fp);
-        return -1;
-    }
-    // Close the file
-    fclose(fp);
-    
-    // Use the JSON object
+    struct json_object *root = json_object_from_file(filename);
     printf("The JSON object is:\n%s\n", json_object_to_json_string_ext(root, JSON_C_TO_STRING_PRETTY));
-    
-    //get password
-    char *j_password;
-    json_object_object_get_ex(root, "password", &j_password);
 
-    // Free the JSON object
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        flag = -1; // 이름이 등록되어 있지 않음
+    }
+    else {
+        char buf[1024];
+
+        struct json_object *usr_obj, *passwd_obj;
+        fclose(fp);
+
+        usr_obj = json_tokener_parse(buf);
+        json_object_object_get_ex(usr_obj, "password", &passwd_obj);
+        if (strcmp(password, json_object_get_string(passwd_obj)) == 0)
+            flag = 0; // 로그인 성공
+        else
+            flag = -2; // 비밀번호 틀림
+
+        json_object_put(usr_obj);
+    }
+
     json_object_put(root);
+    free(filename);
 
-    //check password
-    if(strcmp(j_password, password) == 0){
-        printf("sign in ");
-        return 0;
-    }
-    else{
-        printf("Error : Wrong Password");
-        return -1;
-    }
-
+    return flag;
 }
 
 /**
@@ -99,6 +97,7 @@ int sign_up(char name[NAME_MAX_LEN], char password[PASSWORD_MAX_LEN]) {
 
         flag = 0;
 
+        chmod(filename, 00744);
         close(fd);
         json_object_put(usr_json);
     }
