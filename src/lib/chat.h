@@ -3,7 +3,7 @@
 #ifndef HEADER_FILE_H
 #define HEADER_FILE_H
 
-#define DEFAULT_PORT 5500
+#define DEFAULT_PORT 9999
 
 #define NAME_MAX_LEN 512
 #define PASSWORD_MAX_LEN 512
