@@ -1,7 +1,7 @@
 #include <openssl/sha.h>
 
-#ifndef HEADER_FILE_H
-#define HEADER_FILE_H
+#ifndef HEADER_FILE_CHAT
+#define HEADER_FILE_CHAT
 
 #define DEFAULT_PORT 9999
 

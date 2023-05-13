@@ -2,7 +2,9 @@
     "files.associations": {
         "chat.h": "c",
         "util.h": "c",
-        "auth.h": "c"
+        "auth.h": "c",
+        "string.h": "c",
+        "types.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

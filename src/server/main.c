@@ -11,6 +11,7 @@
 #include <pthread.h>
 
 #include "../lib/chat.h"
+#include "../lib/chatutil.h"
 #include "util.h"
 #include "auth.h"
 
@@ -52,7 +53,7 @@ void server() {
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(DEFAULT_PORT);
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("error while binding socket with address\n");
@@ -88,7 +89,7 @@ void server() {
     close(socket_fd);
 }
 
-int send_chats_list(sock_fd client_socket_fd) {
+int send_chats_list(sock_fd client_sock_fd) {
     DIR *chats_dfd;
     int flag = 0;
 
@@ -98,7 +99,7 @@ int send_chats_list(sock_fd client_socket_fd) {
     }
     
     struct dirent *direntp;
-    char *list = (char*)malloc(sizeof(char));
+    char *list = (char*)malloc(sizeof(char) * 2);
     strcpy(list, "[");
 
     while ((direntp = readdir(chats_dfd)) != NULL) {
@@ -115,16 +116,20 @@ int send_chats_list(sock_fd client_socket_fd) {
         strcat(list, ",");
     }
 
-    closedir(chats_dfd);
 
     list[strlen(list) - 1] = ']';
 
-    printf("send list: %s", list);
-    fflush(stdout);
+    struct json_object *chats_list_json = json_object_new_object();
+
+    json_object_object_add(chats_list_json, "list_str", json_object_new_string(list));
+    const char* msg = json_object_to_json_string(chats_list_json);
+
+    send_dynamic_data_tcp(client_sock_fd, msg);
     flag = 0;
 
+    closedir(chats_dfd);
     free(list);
-    // struct json_object *chats_list_json = json_object_new_object();
+    json_object_put(chats_list_json);
 
     return flag;
 }
@@ -160,7 +165,7 @@ void* sign_handler(void* client_sock_fdp) {
     if (msg.type == SIGN_IN) {
         if(sign_in(msg.name, msg.password) == 0){
             msg_server.type = SUCCESS;
-            strcpy(msg_server.msg, "you success to sign in!\n");
+            strcpy(msg_server.msg, "you success to sign in!\n");            
         }
         else {
             msg_server.type = FAILED;
@@ -176,6 +181,7 @@ void* sign_handler(void* client_sock_fdp) {
             0
         );
 
+        send_chats_list(client_sock_fd);
 
     }
     else if (msg.type == SIGN_UP) {
@@ -208,7 +214,7 @@ void* sign_handler(void* client_sock_fdp) {
                 perror("error at sending sign msg to client");
             }
             else {
-                // send_chats_list(client_sock_fd);
+                send_chats_list(client_sock_fd);
             }
         }
         else {

@@ -1,3 +1,3 @@
 #/bin/bash!
 
-gcc main.c -l json-c
+gcc main.c ../lib/chatutil.c -l json-c

@@ -22,7 +22,6 @@ int sign_in(char name[NAME_MAX_LEN], char password[PASSWORD_MAX_LEN]) {
     int flag = 0;
     char path[1024];
     sprintf(path, "usr/%s.json", name);
-    printf("%s\n", path);
 
     FILE *fp = fopen(path, "r");
     if (!fp) {
@@ -40,7 +39,7 @@ int sign_in(char name[NAME_MAX_LEN], char password[PASSWORD_MAX_LEN]) {
     fclose(fp);
     
     // Use the JSON object
-    printf("The JSON object is:\n%s\n", json_object_to_json_string_ext(root, JSON_C_TO_STRING_PRETTY));
+    // printf("The JSON object is:\n%s\n", json_object_to_json_string_ext(root, JSON_C_TO_STRING_PRETTY));
     
     //get password
     json_object *j_password;
@@ -49,15 +48,15 @@ int sign_in(char name[NAME_MAX_LEN], char password[PASSWORD_MAX_LEN]) {
 
     //check password
     char n_password[PASSWORD_MAX_LEN+2];
-    sprintf(n_password, "\"%s\"", password);
-    printf("password in .json : %s\n", json_object_get_string(j_password));
-    printf("password input : %s\n", n_password);
+    sprintf(n_password, "%s", password);
+    // printf("password in .json : %s\n", json_object_get_string(j_password));
+    // printf("password input : %s\n", n_password);
     if(strcmp(json_object_get_string(j_password), n_password) == 0){
-        printf("sign in ");
+        printf("sign in\n");
         return 0;
     }
     else{
-        printf("Error : Wrong Password");
+        printf("Error : Wrong Password\n");
         return -3;
     }
 

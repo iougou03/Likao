@@ -59,6 +59,14 @@ struct msg_from_server_t
 ![image](https://user-images.githubusercontent.com/53176902/234831911-071c449d-1536-472c-af76-5bf4e1110274.png)
 
 
+Server는 main process에서 client 1:1 대응으로 thread 생성
+    thread는  접속, 채팅방 참가 및 나가기 는 TCP 통신
+
+Server는 main process에서 chat방 1:1 대응으로 process 생성
+    fork 된 chatting은 main에서 받은 udp socket fd를 이용
+        echo기능
+        접속 echo기능
+    client는 udp 로 채팅
 
 #### 유의사항
 

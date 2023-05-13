@@ -12,29 +12,44 @@
 #include <json-c/json.h>
 
 #include "../lib/chat.h"
+#include "../lib/chatutil.h"
 
 void input_ui(char *name, char *password);
 sock_fd connect_to_server(char* server_ip);
 const char* struct_to_json(struct json_object* j_obj, struct msg_from_client_t clnt);
 void json_to_struct(struct json_object* j_obj, struct msg_from_server_t* msgp);
-void sign_in(int sockfd);
-void sign_up(int sockfd);
+int sign_in(int sockfd);
+int sign_up(int sockfd);
 
 int main(int argc,char **argv){
     sock_fd sockfd;
-    int sign_num;
+    int sign_num, state = -1;
 
     sockfd = connect_to_server("127.0.0.1");
 
         //sign in/ sign up
-    printf("1 : sign in / 2 : sign up\n");
+    printf("1 : sign in / 2 : sign up\n>");
     scanf("%d", &sign_num);
 
     if(sign_num == 1){ //sign in
-        sign_in(sockfd);
+        state = sign_in(sockfd);
     }
     else if (sign_num == 2) { 
-        sign_up(sockfd);
+        state = sign_up(sockfd);
+    }
+
+    if (state == 0) {
+        char* recv_mem = recv_dynamic_data_tcp(sockfd);
+        struct json_object* msg_j_obj;
+
+        if ((msg_j_obj = json_tokener_parse(recv_mem)) == NULL) {
+            perror("error while convert recv data");
+        }
+
+        printf("%s\n", json_object_to_json_string(msg_j_obj));
+
+        json_object_put(msg_j_obj);
+        free(recv_mem);
     }
     
     close(sockfd);
@@ -99,7 +114,7 @@ void json_to_struct(struct json_object* j_obj, struct msg_from_server_t* msgp) {
     }
 }
 
-void sign_up(int sockfd) {
+int sign_up(int sockfd) {
     struct msg_from_client_t msg_client;
     struct json_object *user_json_obj = json_object_new_object();
 
@@ -127,22 +142,24 @@ void sign_up(int sockfd) {
     struct json_object *received_msg_json = json_tokener_parse((char*) received_msg_raw);
     json_to_struct(received_msg_json, &msg_server);
 
-    // -------need to remove---------
-    printf("Received data %d %s\n",msg_server.type, msg_server.msg);
-    // ------------------------------
-
-    if (msg_server.type == SUCCESS)
-        printf("Sign UP!");
-    else
-        printf("Sign up failed");
-    
+    int flag;
+    if (msg_server.type == SUCCESS) {
+        printf("Sign UP!\n");
+        flag = 0;
+    }
+    else {
+        printf("Sign up failed\n");
+        flag = -1;
+    }
 
     json_object_put(received_msg_json);
     free(received_msg_raw);
+
+    return flag;
 }
 
 
-void sign_in(int sockfd)
+int sign_in(int sockfd)
 {
     struct msg_from_client_t msg_client;
     struct json_object *user_json_obj = json_object_new_object();
@@ -171,13 +188,17 @@ void sign_in(int sockfd)
     struct json_object *received_msg_json = json_tokener_parse(received_msg_raw);
     json_to_struct(received_msg_json, &msg_server);
 
+    int flag;
     if (msg_server.type == SUCCESS) {
-        printf("Login success!\n");
+        flag = 0;
     }
     else {
-        printf("Login fail\n");
+        flag = -1;
     }
+    printf("%s\n", msg_server.msg);
 
     json_object_put(received_msg_json);
     free(received_msg_raw);
+
+    return flag;
 }
