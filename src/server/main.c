@@ -99,8 +99,9 @@ int send_chats_list(sock_fd client_sock_fd) {
     }
     
     struct dirent *direntp;
-    char *list = (char*)malloc(sizeof(char) * 2);
-    strcpy(list, "[");
+    int cnt = 0;
+    char *list = (char*)malloc(sizeof(char) * 3);
+    list[0] = '['; list[1] = '\0';
 
     while ((direntp = readdir(chats_dfd)) != NULL) {
         if (strcmp(".", direntp->d_name) == 0 || strcmp("..", direntp->d_name) == 0) {
@@ -114,10 +115,18 @@ int send_chats_list(sock_fd client_sock_fd) {
         }
         strcat(list, direntp->d_name);
         strcat(list, ",");
+        cnt++;
     }
 
-
-    list[strlen(list) - 1] = ']';
+    // printf()
+    if (cnt == 0) {
+        list[strlen(list)] = ']';
+        list[strlen(list) + 1] = '\0';
+    }
+    else {
+        list[strlen(list) - 1] = ']';
+        list[strlen(list)] = '\0';
+    }
 
     struct json_object *chats_list_json = json_object_new_object();
 
