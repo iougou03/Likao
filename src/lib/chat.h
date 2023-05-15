@@ -1,8 +1,7 @@
-#include <openssl/sha.h>
+//#include <openssl/sha.h>
 
 #ifndef HEADER_FILE_CHAT
 #define HEADER_FILE_CHAT
-
 #define DEFAULT_PORT 9999
 
 #define NAME_MAX_LEN 512
@@ -38,6 +37,16 @@ struct msg_from_server_t
 {
     msg_server_type type;
     char msg[MSG_MAX_LEN];
+};
+
+typedef enum {
+    CREATE = 1,
+    JOIN = 2
+} chats_client_type;
+
+struct chats_from_client_t {
+    chats_client_type type;
+    char room_name[NAME_MAX_LEN];
 };
 
 #endif
