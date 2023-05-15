@@ -109,12 +109,15 @@ int send_chats_list(sock_fd client_sock_fd) {
         }
 
         int len = strlen(direntp->d_name);
-        if ((list = (char*)realloc(list, sizeof(char) * (strlen(list) + 1 + len))) == NULL) {
+        if ((list = (char*)realloc(list, sizeof(char) * (2 + strlen(list) + 1 + len))) == NULL) {
             flag = -2;
             break;
         }
+        strcat(list, "\"");
         strcat(list, direntp->d_name);
+        strcat(list, "\"");
         strcat(list, ",");
+
         cnt++;
     }
 
@@ -128,9 +131,11 @@ int send_chats_list(sock_fd client_sock_fd) {
         list[strlen(list)] = '\0';
     }
 
-    struct json_object *chats_list_json = json_object_new_object();
 
-    json_object_object_add(chats_list_json, "list_str", json_object_new_string(list));
+    char* buffer = (char*)malloc(sizeof(char) * (10 + strlen(list)));
+    sprintf(buffer, "{\"list\": %s}", list);
+
+    struct json_object *chats_list_json = json_tokener_parse(buffer);
     const char* msg = json_object_to_json_string(chats_list_json);
 
     send_dynamic_data_tcp(client_sock_fd, msg);
@@ -138,6 +143,7 @@ int send_chats_list(sock_fd client_sock_fd) {
 
     closedir(chats_dfd);
     free(list);
+    free(buffer);
     json_object_put(chats_list_json);
 
     return flag;
@@ -190,7 +196,9 @@ void* sign_handler(void* client_sock_fdp) {
             0
         );
 
-        send_chats_list(client_sock_fd);
+        if (msg_server.type == SUCCESS) {
+            send_chats_list(client_sock_fd);
+        }
 
     }
     else if (msg.type == SIGN_UP) {
