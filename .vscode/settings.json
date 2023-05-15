@@ -4,7 +4,8 @@
         "util.h": "c",
         "auth.h": "c",
         "string.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "json.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

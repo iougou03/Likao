@@ -1,6 +1,9 @@
 #include <json-c/json.h>
 #include "../lib/chat.h"
 
+#ifndef HEADER_FILE_SERVER_UTIL
+#define HEADER_FILE_SERVER_UTIL
+
 void json_to_strcut(struct json_object* j_obj, struct msg_from_client_t* msgp);
 
 void struct_to_json(struct json_object* j_obj, struct msg_from_server_t msg);
@@ -16,3 +19,5 @@ struct chat_json_t {
     struct json_array *users;
     time_t created_at;
 };
+
+#endif

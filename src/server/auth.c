@@ -13,6 +13,8 @@
 #include <pthread.h>
 
 #include "../lib/chat.h"
+#include "util.h"
+
 /**
  * -1: file open
  * -2: JSON file
@@ -106,4 +108,88 @@ int sign_up(char name[NAME_MAX_LEN], char password[PASSWORD_MAX_LEN]) {
     chdir("..");
     free(filename);
     return flag;
+}
+
+void pth_auth(pthread_t tid, sock_fd client_sock_fd) {
+    void* received_msg_raw = malloc(sizeof(struct msg_from_client_t));
+
+    /**
+     * TODO: if user termiate, server also terminate
+     * 
+     * RESOLVE: should not terminate
+    */
+    if (recv(client_sock_fd, received_msg_raw ,sizeof(struct msg_from_client_t), 0) == -1) {
+        perror("error while receiving");
+        pthread_cancel(tid);
+    }
+
+    struct json_object *j_obj = json_tokener_parse(received_msg_raw);
+    struct msg_from_client_t msg;
+
+    json_to_strcut(j_obj, &msg);
+
+    printf("recv message: %d, %s %s\n",msg.type, msg.name, msg.password);
+
+    struct msg_from_server_t msg_server;
+    struct json_object *send_json_obj = json_object_new_object();
+
+    // TODO: sign handler
+    if (msg.type == SIGN_IN) {
+        if(sign_in(msg.name, msg.password) == 0){
+            msg_server.type = SUCCESS;
+            strcpy(msg_server.msg, "you success to sign in!\n");            
+        }
+        else {
+            msg_server.type = FAILED;
+            strcpy(msg_server.msg, "error!");
+        }
+
+        struct_to_json(send_json_obj, msg_server);
+
+        send(
+            client_sock_fd,
+            json_object_to_json_string(send_json_obj),
+            sizeof(struct msg_from_server_t),
+            0
+        );
+    }
+    else if (msg.type == SIGN_UP) {
+        int flag = sign_up(msg.name, msg.password);
+        if (flag == -1) {
+            msg_server.type = FAILED;
+            strcpy(msg_server.msg, "there already signed user!");
+
+            struct_to_json(send_json_obj, msg_server);
+
+            send(
+                client_sock_fd,
+                json_object_to_json_string(send_json_obj),
+                sizeof(struct msg_from_server_t),
+                0
+            );
+        }
+        else if (flag == 0) {
+            msg_server.type = SUCCESS;
+            strcpy(msg_server.msg, "you success to sign up!");
+
+            struct_to_json(send_json_obj, msg_server);
+
+            if (send(
+                client_sock_fd,
+                json_object_to_json_string(send_json_obj),
+                sizeof(struct msg_from_server_t),
+                0
+            ) == -1) {
+                perror("error at sending sign msg to client");
+            }
+        }
+        else {
+            fprintf(stderr, "error while sign up");
+        }
+
+    }
+    
+    json_object_put(j_obj);
+    json_object_put(send_json_obj);
+    free(received_msg_raw);
 }

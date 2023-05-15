@@ -60,7 +60,10 @@ struct msg_from_server_t
 
 
 Server는 main process에서 client 1:1 대응으로 thread 생성
-    thread는  접속, 채팅방 참가 및 나가기 는 TCP 통신
+    thread는  
+        접속, 
+        채팅방 생성,
+        채팅방 참가 및 나가기 요청은 TCP 통신
 
 Server는 main process에서 chat방 1:1 대응으로 process 생성
     fork 된 chatting은 main에서 받은 udp socket fd를 이용
@@ -82,4 +85,12 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
 
 ## in Debugging
 
-password, name을 길게 입력하는 error handling
+* password, name을 길게 입력하는 error handling
+
+* sign_in, sign_up error code마다 다른 메세지 내용 (more detailed error handling needed)
+
+* sign in/up에서 write/send 에서 buffer size기준이 구조체로 되어있음. 
+    
+    원래는 json_object에서 변환된 string사이즈가 들어가야함
+
+* sign in/up에서 dyanmic size인 구조체로 송수신하기

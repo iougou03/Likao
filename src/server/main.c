@@ -43,7 +43,7 @@ void server() {
     sock_fd socket_fd, client_socket_fd;
     socklen_t client_size;
     struct sockaddr_in server_addr, client_addr;
-    void* sign_handler();
+    void * client_tcp_handler();
 
     if ((socket_fd = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
         perror("error while creating socket, plz try again later\n");
@@ -53,7 +53,8 @@ void server() {
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(DEFAULT_PORT);
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    // server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     if (bind(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("error while binding socket with address\n");
@@ -77,7 +78,7 @@ void server() {
             // TODO: tell client connection failed
         }
 
-        if (pthread_create(&thread_id, NULL, sign_handler, (void*)&client_socket_fd) == -1) {
+        if (pthread_create(&thread_id, NULL, client_tcp_handler, (void*)&client_socket_fd) == -1) {
             perror("cannot create thread for client");
             // TODO: server handle thread create error
         }
@@ -149,100 +150,48 @@ int send_chats_list(sock_fd client_sock_fd) {
     return flag;
 }
 
-void* sign_handler(void* client_sock_fdp) {
+void chats_manager(sock_fd client_sock_fd) {
+    struct chats_from_client_t msg_client;
+    struct json_object* msg_client_json;
+
+    void* raw_msg = NULL;
+    
+    raw_msg = recv_dynamic_data_tcp(client_sock_fd);
+
+    if ((msg_client_json = json_tokener_parse(raw_msg)) == NULL) {
+        perror("json parse failed");
+    }
+
+    json_object_object_foreach(msg_client_json, key, val) {
+        if (strcmp(key, "type") == 0)
+            msg_client.type = json_object_get_int(val);
+
+        else if (strcmp(key, "room_name") == 0)
+            strcpy(msg_client.room_name, json_object_get_string(val));
+    }
+
+    printf("%d %s\n", msg_client.type, msg_client.room_name);
+    fflush(stdout);
+
+    free(raw_msg);
+    json_object_put(msg_client_json);
+}
+
+void *client_tcp_handler(void* client_sock_fdp) {
+    void pth_auth(pthread_t, sock_fd);
+
     pthread_t tid = pthread_self();
     printf("[Client conencted]: thread %ld %d\n", tid, gettid());
     
     sock_fd client_sock_fd = *((int*)client_sock_fdp);
-    void* received_msg_raw = malloc(sizeof(struct msg_from_client_t));
 
-    /**
-     * TODO: if user termiate, server also terminate
-     * 
-     * RESOLVE: should not terminate
-    */
-    if (recv(client_sock_fd, received_msg_raw ,sizeof(struct msg_from_client_t), 0) == -1) {
-        perror("error while receiving");
-        pthread_cancel(tid);
-    }
+    pth_auth(tid, client_sock_fd);
 
-    struct json_object *j_obj = json_tokener_parse(received_msg_raw);
-    struct msg_from_client_t msg;
-
-    json_to_strcut(j_obj, &msg);
-
-    printf("recv message: %d, %s %s\n",msg.type, msg.name, msg.password);
-
-    struct msg_from_server_t msg_server;
-    struct json_object *send_json_obj = json_object_new_object();
-
-    // TODO: sign handler
-    if (msg.type == SIGN_IN) {
-        if(sign_in(msg.name, msg.password) == 0){
-            msg_server.type = SUCCESS;
-            strcpy(msg_server.msg, "you success to sign in!\n");            
-        }
-        else {
-            msg_server.type = FAILED;
-            strcpy(msg_server.msg, "error!");
-        }
-
-        struct_to_json(send_json_obj, msg_server);
-
-        send(
-            client_sock_fd,
-            json_object_to_json_string(send_json_obj),
-            sizeof(struct msg_from_server_t),
-            0
-        );
-
-        if (msg_server.type == SUCCESS) {
-            send_chats_list(client_sock_fd);
-        }
-
-    }
-    else if (msg.type == SIGN_UP) {
-        int flag = sign_up(msg.name, msg.password);
-        if (flag == -1) {
-            msg_server.type = FAILED;
-            strcpy(msg_server.msg, "there already signed user!");
-
-            struct_to_json(send_json_obj, msg_server);
-
-            send(
-                client_sock_fd,
-                json_object_to_json_string(send_json_obj),
-                sizeof(struct msg_from_server_t),
-                0
-            );
-        }
-        else if (flag == 0) {
-            msg_server.type = SUCCESS;
-            strcpy(msg_server.msg, "you success to sign up!");
-
-            struct_to_json(send_json_obj, msg_server);
-
-            if (send(
-                client_sock_fd,
-                json_object_to_json_string(send_json_obj),
-                sizeof(struct msg_from_server_t),
-                0
-            ) == -1) {
-                perror("error at sending sign msg to client");
-            }
-            else {
-                send_chats_list(client_sock_fd);
-            }
-        }
-        else {
-            fprintf(stderr, "error while sign up");
-        }
-
-    }
+    send_chats_list(client_sock_fd);
     
-    json_object_put(j_obj);
-    json_object_put(send_json_obj);
-    free(received_msg_raw);
+    chats_manager(client_sock_fd);
+    
+
     close(client_sock_fd);
 }
 
