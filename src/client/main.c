@@ -14,16 +14,21 @@
 #include "../lib/chat.h"
 #include "../lib/chatutil.h"
 
+
+
 void input_ui(char *name, char *password);
 sock_fd connect_to_server(char* server_ip);
 const char* struct_to_json(struct json_object* j_obj, struct msg_from_client_t clnt);
 void json_to_struct(struct json_object* j_obj, struct msg_from_server_t* msgp);
 int sign_in(int sockfd);
 int sign_up(int sockfd);
+int make_chats_list(int sockfd);
+int join_chat_room(int sockfd);
 
 int main(int argc,char **argv){
     sock_fd sockfd;
     int sign_num, state = -1;
+    int chat_num;
 
     sockfd = connect_to_server("127.0.0.1");
 
@@ -50,6 +55,16 @@ int main(int argc,char **argv){
 
         json_object_put(msg_j_obj);
         free(recv_mem);
+    }
+
+    printf("1: Create the chat room / 2: Join the chat room\n>");
+    scanf("%d", &chat_num);
+
+    if (chat_num == 1) { // Create the chat room
+        state = make_chats_list(sockfd);
+    }
+    else if (chat_num == 2) { // Enter the chat room
+        state = join_chat_room(sockfd);
     }
     
     close(sockfd);
@@ -158,7 +173,6 @@ int sign_up(int sockfd) {
     return flag;
 }
 
-
 int sign_in(int sockfd)
 {
     struct msg_from_client_t msg_client;
@@ -201,4 +215,39 @@ int sign_in(int sockfd)
     free(received_msg_raw);
 
     return flag;
+}
+
+int make_chats_list(int sockfd) {
+    struct chats_from_client_t chats_client;
+    struct json_object *chats_json_obj = json_object_new_object();
+
+    chats_client.type = CREATE;
+    printf("Enter the room name to create: ");
+    scanf("%s", chats_client.room_name);
+
+    json_object_object_add(chats_json_obj, "type", json_object_new_int(chats_client.type));
+    json_object_object_add(chats_json_obj, "room_name", json_object_new_string(chats_client.room_name));
+
+    const char* msg = json_object_to_json_string(chats_json_obj);
+
+    send_dynamic_data_tcp(sockfd, msg);
+
+    json_object_put(chats_json_obj);
+}
+
+int join_chat_room(int sockfd) {
+    struct chats_from_client_t chats_client;
+    struct json_object *chats_json_obj = json_object_new_object();
+
+    chats_client.type = JOIN;
+    printf("Enter the room name to join: ");
+    scanf("%s", chats_client.room_name);
+    json_object_object_add(chats_json_obj, "type", json_object_new_int(chats_client.type));
+    json_object_object_add(chats_json_obj, "room_name", json_object_new_string(chats_client.room_name));
+
+    const char* msg = json_object_to_json_string(chats_json_obj);
+
+    send_dynamic_data_tcp(sockfd, msg);
+
+    json_object_put(chats_json_obj);
 }
