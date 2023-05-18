@@ -233,8 +233,6 @@ void print_chat_list(struct json_object *j_obj) {
 
     for (i = 0; i < array_len; i++) {
         json_object *json_elem = json_object_array_get_idx(j_obj, i);
-
-        // TODO: json extension 없애기
         printf("[chat %d]: %s\n", i + 1, json_object_get_string(json_elem));
     }
     printf("\n");

@@ -119,14 +119,17 @@ int send_chats_list(sock_fd client_sock_fd) {
             flag = -2;
             break;
         }
+        char chat_name[NAME_MAX_LEN];
+        strncpy(chat_name, direntp->d_name, strlen(direntp->d_name) - 5);
+        
         strcat(list, "\"");
-        strcat(list, direntp->d_name);
+        strcat(list, chat_name);
         strcat(list, "\"");
         strcat(list, ",");
 
         cnt++;
     }
-
+    
     if (cnt == 0) {
         list[strlen(list)] = ']';
         list[strlen(list) + 1] = '\0';
