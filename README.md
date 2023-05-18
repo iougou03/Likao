@@ -94,3 +94,6 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
     원래는 json_object에서 변환된 string사이즈가 들어가야함
 
 * sign in/up에서 dyanmic size인 구조체로 송수신하기
+
+* chat.h 에서 client enum들 통합하기
+    그에 따라 클라이언트 코드 수정

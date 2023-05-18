@@ -110,14 +110,11 @@ int sign_up(char name[NAME_MAX_LEN], char password[PASSWORD_MAX_LEN]) {
     return flag;
 }
 
-void pth_auth(pthread_t tid, sock_fd client_sock_fd) {
+int pth_auth(pthread_t tid, sock_fd client_sock_fd) {
+    int flag = 0;
+
     void* received_msg_raw = malloc(sizeof(struct msg_from_client_t));
 
-    /**
-     * TODO: if user termiate, server also terminate
-     * 
-     * RESOLVE: should not terminate
-    */
     if (recv(client_sock_fd, received_msg_raw ,sizeof(struct msg_from_client_t), 0) == -1) {
         perror("error while receiving");
         pthread_cancel(tid);
@@ -137,11 +134,13 @@ void pth_auth(pthread_t tid, sock_fd client_sock_fd) {
     if (msg.type == SIGN_IN) {
         if(sign_in(msg.name, msg.password) == 0){
             msg_server.type = SUCCESS;
-            strcpy(msg_server.msg, "you success to sign in!\n");            
+            strcpy(msg_server.msg, "you success to sign in!\n");
+            flag = 0;            
         }
         else {
             msg_server.type = FAILED;
             strcpy(msg_server.msg, "error!");
+            flag = -1;
         }
 
         struct_to_json(send_json_obj, msg_server);
@@ -167,6 +166,8 @@ void pth_auth(pthread_t tid, sock_fd client_sock_fd) {
                 sizeof(struct msg_from_server_t),
                 0
             );
+
+            flag = -1;
         }
         else if (flag == 0) {
             msg_server.type = SUCCESS;
@@ -182,9 +183,13 @@ void pth_auth(pthread_t tid, sock_fd client_sock_fd) {
             ) == -1) {
                 perror("error at sending sign msg to client");
             }
+
+            flag = 0;
         }
         else {
             fprintf(stderr, "error while sign up");
+
+            flag = -1;
         }
 
     }
@@ -192,4 +197,6 @@ void pth_auth(pthread_t tid, sock_fd client_sock_fd) {
     json_object_put(j_obj);
     json_object_put(send_json_obj);
     free(received_msg_raw);
+
+    return flag;
 }

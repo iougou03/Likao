@@ -39,6 +39,11 @@ int init(char* execute_name) {
     // TODO: craete fork for each chat rooms
 }
 
+/**
+ * TODO: if user termiate, server also terminate
+ * 
+ * RESOLVE: should not terminate
+*/
 void server() {
     sock_fd socket_fd, client_socket_fd;
     socklen_t client_size;
@@ -53,8 +58,8 @@ void server() {
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(DEFAULT_PORT);
-    // server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    // server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     if (bind(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("error while binding socket with address\n");
@@ -122,7 +127,6 @@ int send_chats_list(sock_fd client_sock_fd) {
         cnt++;
     }
 
-    // printf()
     if (cnt == 0) {
         list[strlen(list)] = ']';
         list[strlen(list) + 1] = '\0';
@@ -132,11 +136,8 @@ int send_chats_list(sock_fd client_sock_fd) {
         list[strlen(list)] = '\0';
     }
 
+    struct json_object *chats_list_json = json_tokener_parse(list);
 
-    char* buffer = (char*)malloc(sizeof(char) * (10 + strlen(list)));
-    sprintf(buffer, "{\"list\": %s}", list);
-
-    struct json_object *chats_list_json = json_tokener_parse(buffer);
     const char* msg = json_object_to_json_string(chats_list_json);
 
     send_dynamic_data_tcp(client_sock_fd, msg);
@@ -144,7 +145,6 @@ int send_chats_list(sock_fd client_sock_fd) {
 
     closedir(chats_dfd);
     free(list);
-    free(buffer);
     json_object_put(chats_list_json);
 
     return flag;
@@ -158,7 +158,7 @@ void chats_manager(sock_fd client_sock_fd) {
     
     raw_msg = recv_dynamic_data_tcp(client_sock_fd);
 
-    if ((msg_client_json = json_tokener_parse(raw_msg)) == NULL) {
+    if ((msg_client_json = json_tokener_parse((char*)raw_msg)) == NULL) {
         perror("json parse failed");
     }
 
@@ -170,6 +170,19 @@ void chats_manager(sock_fd client_sock_fd) {
             strcpy(msg_client.room_name, json_object_get_string(val));
     }
 
+    if (msg_client.type == CREATE) {
+        struct chat_json_t chat;
+
+        time_t now = time(0);
+        
+        chat.created_at = now;
+        strcpy(chat.name, msg_client.room_name);
+        // chat.users = json_tokener_parse();
+
+    }
+    else if (msg_client.type == JOIN) {
+
+    }
     printf("%d %s\n", msg_client.type, msg_client.room_name);
     fflush(stdout);
 
@@ -178,19 +191,18 @@ void chats_manager(sock_fd client_sock_fd) {
 }
 
 void *client_tcp_handler(void* client_sock_fdp) {
-    void pth_auth(pthread_t, sock_fd);
+    int pth_auth(pthread_t, sock_fd);
 
     pthread_t tid = pthread_self();
     printf("[Client conencted]: thread %ld %d\n", tid, gettid());
     
     sock_fd client_sock_fd = *((int*)client_sock_fdp);
 
-    pth_auth(tid, client_sock_fd);
-
-    send_chats_list(client_sock_fd);
-    
-    chats_manager(client_sock_fd);
-    
+    if (pth_auth(tid, client_sock_fd) == 0) {
+        send_chats_list(client_sock_fd);
+        
+        chats_manager(client_sock_fd);
+    }
 
     close(client_sock_fd);
 }

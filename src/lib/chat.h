@@ -2,7 +2,7 @@
 
 #ifndef HEADER_FILE_CHAT
 #define HEADER_FILE_CHAT
-#define DEFAULT_PORT 9999
+#define DEFAULT_PORT 23345
 
 #define NAME_MAX_LEN 512
 #define PASSWORD_MAX_LEN 512
@@ -17,8 +17,14 @@ struct user_t
 
 typedef enum {
     SIGN_IN=1,
-    SIGN_UP=2
+    SIGN_UP=2,
+    CREATE = 3,
+    JOIN = 4
 } msg_client_type;
+
+struct msg_form_t {
+    int type;
+};
 
 struct msg_from_client_t
 {
@@ -39,13 +45,9 @@ struct msg_from_server_t
     char msg[MSG_MAX_LEN];
 };
 
-typedef enum {
-    CREATE = 1,
-    JOIN = 2
-} chats_client_type;
 
 struct chats_from_client_t {
-    chats_client_type type;
+    msg_client_type type;
     char room_name[NAME_MAX_LEN];
 };
 

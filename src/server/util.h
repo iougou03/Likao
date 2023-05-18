@@ -16,7 +16,7 @@ struct user_json_t {
 
 struct chat_json_t {
     char name[NAME_MAX_LEN];
-    struct json_array *users;
+    struct json_object *users;
     time_t created_at;
 };
 

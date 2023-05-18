@@ -18,10 +18,11 @@
 
 void input_ui(char *name, char *password);
 sock_fd connect_to_server(char* server_ip);
-const char* struct_to_json(struct json_object* j_obj, struct msg_from_client_t clnt);
+const char* struct_to_json(struct json_object* j_obj, void* clnt);
 void json_to_struct(struct json_object* j_obj, struct msg_from_server_t* msgp);
 int sign_in(int sockfd);
 int sign_up(int sockfd);
+void print_chat_list(struct json_object* j_obj);
 int make_chats_list(int sockfd);
 int join_chat_room(int sockfd);
 
@@ -51,22 +52,22 @@ int main(int argc,char **argv){
             perror("error while convert recv data");
         }
 
-        printf("%s\n", json_object_to_json_string(msg_j_obj));
+        print_chat_list(msg_j_obj);
 
         json_object_put(msg_j_obj);
         free(recv_mem);
+
+        printf("1: Create the chat room / 2: Join the chat room\n>");
+        scanf("%d", &chat_num);
+
+        if (chat_num == 1) { // Create the chat room
+            state = make_chats_list(sockfd);
+        }
+        else if (chat_num == 2) { // Enter the chat room
+            state = join_chat_room(sockfd);
+        }
     }
 
-    printf("1: Create the chat room / 2: Join the chat room\n>");
-    scanf("%d", &chat_num);
-
-    if (chat_num == 1) { // Create the chat room
-        state = make_chats_list(sockfd);
-    }
-    else if (chat_num == 2) { // Enter the chat room
-        state = join_chat_room(sockfd);
-    }
-    
     close(sockfd);
 
     return 0;
@@ -110,12 +111,21 @@ sock_fd connect_to_server(char* server_ip) {
     return sockfd;
 }
 
-const char* struct_to_json(struct json_object* j_obj, struct msg_from_client_t clnt) {
-    json_object_object_add(j_obj, "type", json_object_new_int(clnt.type));
+const char* struct_to_json(struct json_object* j_obj, void *clnt) {
+    struct msg_form_t* p = (struct msg_form_t*) clnt;
 
-    if (clnt.type == SIGN_IN || clnt.type == SIGN_UP) {
-        json_object_object_add(j_obj, "name", json_object_new_string(clnt.name));
-        json_object_object_add(j_obj, "password", json_object_new_string(clnt.password));
+    json_object_object_add(j_obj, "type", json_object_new_int(p->type));
+
+    if (p->type == SIGN_IN || p->type == SIGN_UP) {
+        struct msg_from_client_t *msgcp = (struct msg_from_client_t*) clnt;
+
+        json_object_object_add(j_obj, "name", json_object_new_string(msgcp->name));
+        json_object_object_add(j_obj, "password", json_object_new_string(msgcp->password));
+    }
+    else if (p->type == CREATE || p->type == JOIN) {
+        struct chats_from_client_t *chats_client = (struct chats_from_client_t*) clnt;
+
+        json_object_object_add(j_obj, "room_name", json_object_new_string(chats_client->room_name));
     }
 }
 
@@ -136,7 +146,7 @@ int sign_up(int sockfd) {
     msg_client.type = SIGN_UP;
     input_ui(msg_client.name, msg_client.password);
 
-    struct_to_json(user_json_obj, msg_client);
+    struct_to_json(user_json_obj, &msg_client);
 
     const char *msg = json_object_to_json_string(user_json_obj);
 
@@ -181,7 +191,7 @@ int sign_in(int sockfd)
     msg_client.type = SIGN_IN;
     input_ui(msg_client.name, msg_client.password);
 
-    struct_to_json(user_json_obj, msg_client);
+    struct_to_json(user_json_obj, &msg_client);
 
     const char* msg = json_object_to_json_string(user_json_obj);
 
@@ -217,6 +227,19 @@ int sign_in(int sockfd)
     return flag;
 }
 
+void print_chat_list(struct json_object *j_obj) {
+    int array_len = json_object_array_length(j_obj);
+    int i;
+
+    for (i = 0; i < array_len; i++) {
+        json_object *json_elem = json_object_array_get_idx(j_obj, i);
+
+        // TODO: json extension 없애기
+        printf("[chat %d]: %s\n", i + 1, json_object_get_string(json_elem));
+    }
+    printf("\n");
+}
+
 int make_chats_list(int sockfd) {
     struct chats_from_client_t chats_client;
     struct json_object *chats_json_obj = json_object_new_object();
@@ -225,8 +248,7 @@ int make_chats_list(int sockfd) {
     printf("Enter the room name to create: ");
     scanf("%s", chats_client.room_name);
 
-    json_object_object_add(chats_json_obj, "type", json_object_new_int(chats_client.type));
-    json_object_object_add(chats_json_obj, "room_name", json_object_new_string(chats_client.room_name));
+    struct_to_json(chats_json_obj, &chats_client);
 
     const char* msg = json_object_to_json_string(chats_json_obj);
 
@@ -242,8 +264,8 @@ int join_chat_room(int sockfd) {
     chats_client.type = JOIN;
     printf("Enter the room name to join: ");
     scanf("%s", chats_client.room_name);
-    json_object_object_add(chats_json_obj, "type", json_object_new_int(chats_client.type));
-    json_object_object_add(chats_json_obj, "room_name", json_object_new_string(chats_client.room_name));
+
+    struct_to_json(chats_json_obj, &chats_client);
 
     const char* msg = json_object_to_json_string(chats_json_obj);
 
