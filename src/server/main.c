@@ -181,8 +181,50 @@ void chats_manager(sock_fd client_sock_fd) {
 
     }
     else if (msg_client.type == JOIN) {
+        struct chat_json_t chat;
+        char chat_room_path[256];
+        char user_name[128];
+        int flag = 0;
 
+        strcpy(user_name, msg_client.user_name); // 클라이언트의 유저 이름 저장
+        strcpy(chat.name, msg_client.room_name); // 클라이언트에서 JOIN하고자 하는 채팅방 이름 저장
+        sprintf(chat_room_path, "chats/%s.json", chat.name);
+    
+        // 채팅방 존재 여부 확인
+        FILE *fp = fopen(chat_room_path, "r");
+        if (!fp) {
+            fprintf(stderr, "%s does not exist.", chat.name);
+            flag = -1;
+            return;
+        }
+        
+        fclose(fp);
+
+        // 원하는 경로의 파일을 JSON 구조체로 받아오기
+        json_object *chat_room_obj = json_object_from_file(chat_room_path);
+
+        struct json_object *users_array;
+        if (!json_object_object_get_ex(chat_room_obj, "users", &users_array)) {
+            fprintf(stderr, "Failed to getting users array.");
+            flag = -2;
+            return;
+        }
+
+        struct json_object *user_name_obj = json_obejct_new_string(user_name);
+        json_object_array_add(users_array, user_name_obj);
+
+        fp = fopen(chat_room_path, "w");
+        if (!fp) {
+            fprintf(stderr, "Failed to open the chatting room file to write.");
+            flag = -2;
+            return;
+        }
+
+        const char *updated_json = json_object_to_json_string_ext(chat_room_obj, JSON_C_TO_STRING_PRETTY);
+        fwrite(updated_json, sizeof(updated_json), 1, fp);
+        fclose(fp);
     }
+
     printf("%d %s\n", msg_client.type, msg_client.room_name);
     fflush(stdout);
 
