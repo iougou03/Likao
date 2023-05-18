@@ -13,12 +13,14 @@
 
 #include "../lib/chat.h"
 #include "../lib/chatutil.h"
+#include "../lib/string_array.h"
 #include "chat_manager.h"
 #include "util.h"
 #include "auth.h"
 
 #include <sys/wait.h>
 int* child_pid_array;
+struct string_arr child_room_name_array = { NULL, 0, 0 };
 
 void handler(){
     wait(NULL);
@@ -53,7 +55,9 @@ void craete_fork() {
     // child process : child_pid_array
     DIR *dir_ptr;
 	struct dirent *direntp;
-    int chats_cnt = 0;
+    int chats_cnt = 0, len = 0;
+
+    char* room_name;
 
     if((dir_ptr = opendir("chats")) == NULL){
 		fprintf(stderr, "cannot open 'chats' dir\n");
@@ -63,6 +67,12 @@ void craete_fork() {
 		while((direntp = readdir(dir_ptr)) != NULL) {
 			if(strstr(direntp->d_name, ".json") != NULL){
                 chats_cnt++;
+                len = strlen(direntp->d_name) - 5;
+                room_name = (char*)malloc(sizeof(char) * len);
+                
+                strncpy(room_name, direntp->d_name, len);
+
+                string_arr_append(&child_room_name_array, room_name);
             }
 		}
 		closedir(dir_ptr);
@@ -79,6 +89,9 @@ void craete_fork() {
         else if(pid == 0) {
             //printf("child %d pid: %d\n", i, getpid());
             child_pid_array[i] = getpid();
+
+            // TODO: child code, chat code
+
             return;
         }
         else {
@@ -283,9 +296,18 @@ void *client_tcp_handler(void* client_sock_fdp) {
     sock_fd client_sock_fd = *((int*)client_sock_fdp);
 
     if (pth_auth(tid, client_sock_fd) == 0) {
-        send_chats_list(client_sock_fd);
         
-        chats_manager(client_sock_fd);
+        // if (check_users_room() == -1) {
+            send_chats_list(client_sock_fd);
+            
+            chats_manager(client_sock_fd);
+        // }
+
+        // while (1)
+        // {
+        // TODO: user connection이 유지되는 동안 채팅방 나가기 이벤트 추적
+        // }
+        
     }
 
     close(client_sock_fd);
@@ -296,7 +318,12 @@ int main (int argc, char** argv) {
     init(argv[0]);
 
     craete_fork();
+
     if(getpid() == p_pid){ //parent process
+        for (int i = 0 ; i < child_room_name_array.len ; i++) {
+            printf("%s\n", child_room_name_array.data[i]);
+        }
+
         server();
     }
 

@@ -5,7 +5,9 @@
         "auth.h": "c",
         "string.h": "c",
         "types.h": "c",
-        "json.h": "c"
+        "json.h": "c",
+        "pthread.h": "c",
+        "string_array.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }
