@@ -152,8 +152,8 @@ int send_chats_list(sock_fd client_sock_fd) {
 }
 
 void chats_manager(sock_fd client_sock_fd) {
-    struct chats_from_client_t msg_client;
     struct json_object* msg_client_json;
+    struct chats_from_client_t msg_client;
 
     void* raw_msg = NULL;
     
@@ -169,15 +169,26 @@ void chats_manager(sock_fd client_sock_fd) {
 
         else if (strcmp(key, "room_name") == 0)
             strcpy(msg_client.room_name, json_object_get_string(val));
+        
+        else if (strcmp(key, "user_name") == 0) 
+            strcpy(msg_client.user_name, json_object_get_string(val));
     }
 
     int flag;
     struct msg_from_server_t msg_server;
     struct json_object *send_json_obj = json_object_new_object();
-    printf("%s %s\n",msg_client.room_name, msg_client.user_name);
 
     if (msg_client.type == CREATE) {
-        flag = create_chat_room(msg_client.room_name, msg_client_json);
+        struct chat_json_t chat;
+
+        strcpy(chat.name, msg_client.room_name);
+        chat.created_at = time(0);
+
+        char* buffer = (char*)malloc(sizeof(char) * (strlen(msg_client.user_name) + 5));
+        sprintf(buffer, "[\"%s\"]", msg_client.user_name);
+        chat.users = json_tokener_parse(buffer);
+
+        flag = create_chat_room(msg_client.room_name, chat);
 
         if (flag == 0) {
             msg_server.type = SUCCESS;
@@ -194,14 +205,12 @@ void chats_manager(sock_fd client_sock_fd) {
 
         const char* data = json_object_to_json_string(send_json_obj);
 
-        if (send(
-            client_sock_fd,
-            data,
-            sizeof(char) * strlen(data),
-            0
-        ) == -1) {
+        if (send_dynamic_data_tcp(client_sock_fd, data) == -1) {
             perror("error at sending CRAETE responding msg to client");
         }
+
+        json_object_put(chat.users);
+        free(buffer);
     }
     else if (msg_client.type == JOIN) {
         

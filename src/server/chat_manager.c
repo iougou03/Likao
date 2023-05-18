@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include "../lib/chat.h"
+#include "util.h"
 
 /**
  * error code
@@ -16,7 +17,7 @@
  * -2: error while finding chats/
  * -3: error while saving json file
 */
-int create_chat_room(char* room_name, struct json_object* msg_client_json) {
+int create_chat_room(char* room_name, struct chat_json_t chat) {
     if (chdir("chats") == -1) {
         fprintf(stderr, "there error while entering chats/, check init()");
         return -2;
@@ -30,11 +31,15 @@ int create_chat_room(char* room_name, struct json_object* msg_client_json) {
     strcat(filename, ext);
 
     if ((fd = open(filename, O_RDONLY)) == -1) {
-        time_t now = time(0);
-
         fd = open(filename, O_WRONLY | O_CREAT);
 
-        if (json_object_to_fd(fd, msg_client_json, JSON_C_TO_STRING_PRETTY  | O_SYNC) == -1) {
+        struct json_object* chat_j_obj = json_object_new_object();
+
+        json_object_object_add(chat_j_obj, "name", json_object_new_string(chat.name));
+        json_object_object_add(chat_j_obj, "users", chat.users);
+        json_object_object_add(chat_j_obj, "created_at", json_object_new_int(chat.created_at));
+    
+        if (json_object_to_fd(fd, chat_j_obj, JSON_C_TO_STRING_PRETTY  | O_SYNC) == -1) {
             perror(json_util_get_last_err());
             flag = -3;
         }

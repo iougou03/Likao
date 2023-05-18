@@ -68,10 +68,14 @@ int main(int argc,char **argv){
             state = join_chat_room(sockfd, user_info.name);
         }
 
-        // if (recv(sockfd, received_msg_raw, sizeof(struct msg_from_server_t), 0) == -1) {
-        //     fprintf(stderr, "Error, try again");
-        //     exit(EXIT_FAILURE);
-        // }
+
+        char* msg_raw = recv_dynamic_data_tcp(sockfd);
+        struct json_object * server_msg_j_obj = json_tokener_parse(msg_raw);
+        struct msg_from_server_t server_msg;
+
+        json_to_struct(server_msg_j_obj, &server_msg);
+
+        printf("%d %s\n", server_msg.type, server_msg.msg);
 
     }
 
