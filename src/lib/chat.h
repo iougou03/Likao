@@ -48,6 +48,7 @@ struct msg_from_server_t
 
 struct chats_from_client_t {
     msg_client_type type;
+    char user_name[NAME_MAX_LEN];
     char room_name[NAME_MAX_LEN];
 };
 

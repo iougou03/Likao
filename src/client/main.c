@@ -20,14 +20,15 @@ void input_ui(char *name, char *password);
 sock_fd connect_to_server(char* server_ip);
 const char* struct_to_json(struct json_object* j_obj, void* clnt);
 void json_to_struct(struct json_object* j_obj, struct msg_from_server_t* msgp);
-int sign_in(int sockfd);
-int sign_up(int sockfd);
+int sign_in(int sockfd, struct user_t* userp);
+int sign_up(int sockfd, struct user_t* userp);
 void print_chat_list(struct json_object* j_obj);
-int make_chats_list(int sockfd);
-int join_chat_room(int sockfd);
+int make_chats_list(int sockfd, char* user_name);
+int join_chat_room(int sockfd, char* user_name);
 
 int main(int argc,char **argv){
     sock_fd sockfd;
+    struct user_t user_info;
     int sign_num, state = -1;
     int chat_num;
 
@@ -38,10 +39,10 @@ int main(int argc,char **argv){
     scanf("%d", &sign_num);
 
     if(sign_num == 1){ //sign in
-        state = sign_in(sockfd);
+        state = sign_in(sockfd, &user_info);
     }
     else if (sign_num == 2) { 
-        state = sign_up(sockfd);
+        state = sign_up(sockfd, &user_info);
     }
 
     if (state == 0) {
@@ -61,11 +62,17 @@ int main(int argc,char **argv){
         scanf("%d", &chat_num);
 
         if (chat_num == 1) { // Create the chat room
-            state = make_chats_list(sockfd);
+            state = make_chats_list(sockfd, user_info.name);
         }
         else if (chat_num == 2) { // Enter the chat room
-            state = join_chat_room(sockfd);
+            state = join_chat_room(sockfd, user_info.name);
         }
+
+        // if (recv(sockfd, received_msg_raw, sizeof(struct msg_from_server_t), 0) == -1) {
+        //     fprintf(stderr, "Error, try again");
+        //     exit(EXIT_FAILURE);
+        // }
+
     }
 
     close(sockfd);
@@ -125,6 +132,7 @@ const char* struct_to_json(struct json_object* j_obj, void *clnt) {
     else if (p->type == CREATE || p->type == JOIN) {
         struct chats_from_client_t *chats_client = (struct chats_from_client_t*) clnt;
 
+        json_object_object_add(j_obj, "user_name", json_object_new_string(chats_client->user_name));
         json_object_object_add(j_obj, "room_name", json_object_new_string(chats_client->room_name));
     }
 }
@@ -139,7 +147,7 @@ void json_to_struct(struct json_object* j_obj, struct msg_from_server_t* msgp) {
     }
 }
 
-int sign_up(int sockfd) {
+int sign_up(int sockfd, struct user_t* userp) {
     struct msg_from_client_t msg_client;
     struct json_object *user_json_obj = json_object_new_object();
 
@@ -170,6 +178,7 @@ int sign_up(int sockfd) {
     int flag;
     if (msg_server.type == SUCCESS) {
         printf("Sign UP!\n");
+        strcpy(userp->name, msg_client.name);
         flag = 0;
     }
     else {
@@ -183,7 +192,7 @@ int sign_up(int sockfd) {
     return flag;
 }
 
-int sign_in(int sockfd)
+int sign_in(int sockfd, struct user_t* userp)
 {
     struct msg_from_client_t msg_client;
     struct json_object *user_json_obj = json_object_new_object();
@@ -215,6 +224,7 @@ int sign_in(int sockfd)
     int flag;
     if (msg_server.type == SUCCESS) {
         flag = 0;
+        strcpy(userp->name, msg_client.name);
     }
     else {
         flag = -1;
@@ -240,7 +250,7 @@ void print_chat_list(struct json_object *j_obj) {
     printf("\n");
 }
 
-int make_chats_list(int sockfd) {
+int make_chats_list(int sockfd, char* user_name) {
     struct chats_from_client_t chats_client;
     struct json_object *chats_json_obj = json_object_new_object();
 
@@ -248,6 +258,7 @@ int make_chats_list(int sockfd) {
     printf("Enter the room name to create: ");
     scanf("%s", chats_client.room_name);
 
+    strcpy(chats_client.user_name, user_name);
     struct_to_json(chats_json_obj, &chats_client);
 
     const char* msg = json_object_to_json_string(chats_json_obj);
@@ -257,7 +268,7 @@ int make_chats_list(int sockfd) {
     json_object_put(chats_json_obj);
 }
 
-int join_chat_room(int sockfd) {
+int join_chat_room(int sockfd, char* user_name) {
     struct chats_from_client_t chats_client;
     struct json_object *chats_json_obj = json_object_new_object();
 
@@ -265,6 +276,7 @@ int join_chat_room(int sockfd) {
     printf("Enter the room name to join: ");
     scanf("%s", chats_client.room_name);
 
+    strcpy(chats_client.user_name, user_name);
     struct_to_json(chats_json_obj, &chats_client);
 
     const char* msg = json_object_to_json_string(chats_json_obj);

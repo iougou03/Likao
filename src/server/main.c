@@ -12,6 +12,7 @@
 
 #include "../lib/chat.h"
 #include "../lib/chatutil.h"
+#include "chat_manager.h"
 #include "util.h"
 #include "auth.h"
 
@@ -170,24 +171,45 @@ void chats_manager(sock_fd client_sock_fd) {
             strcpy(msg_client.room_name, json_object_get_string(val));
     }
 
+    int flag;
+    struct msg_from_server_t msg_server;
+    struct json_object *send_json_obj = json_object_new_object();
+    printf("%s %s\n",msg_client.room_name, msg_client.user_name);
+
     if (msg_client.type == CREATE) {
-        struct chat_json_t chat;
+        flag = create_chat_room(msg_client.room_name, msg_client_json);
 
-        time_t now = time(0);
-        
-        chat.created_at = now;
-        strcpy(chat.name, msg_client.room_name);
-        // chat.users = json_tokener_parse();
+        if (flag == 0) {
+            msg_server.type = SUCCESS;
+            strcpy(msg_server.msg, "succesfully creating chat room!");
+            flag = 0;
+        }
+        else {
+            msg_server.type = FAILED;
+            strcpy(msg_server.msg, "error!");
+            flag = -1;
+        }
 
+        struct_to_json(send_json_obj, &msg_server);
+
+        const char* data = json_object_to_json_string(send_json_obj);
+
+        if (send(
+            client_sock_fd,
+            data,
+            sizeof(char) * strlen(data),
+            0
+        ) == -1) {
+            perror("error at sending CRAETE responding msg to client");
+        }
     }
     else if (msg_client.type == JOIN) {
-
+        
     }
-    printf("%d %s\n", msg_client.type, msg_client.room_name);
-    fflush(stdout);
 
     free(raw_msg);
     json_object_put(msg_client_json);
+    json_object_put(send_json_obj);
 }
 
 void *client_tcp_handler(void* client_sock_fdp) {

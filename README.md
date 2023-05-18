@@ -95,5 +95,7 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
 
 * sign in/up에서 dyanmic size인 구조체로 송수신하기
 
+* server내 auth.c 코드 스타일 수정, 모든 error code에 대해서 send가 일어나야함
+
 * chat.h 에서 client enum들 통합하기
     그에 따라 클라이언트 코드 수정

@@ -130,7 +130,6 @@ int pth_auth(pthread_t tid, sock_fd client_sock_fd) {
     struct msg_from_server_t msg_server;
     struct json_object *send_json_obj = json_object_new_object();
 
-    // TODO: sign handler
     if (msg.type == SIGN_IN) {
         if(sign_in(msg.name, msg.password) == 0){
             msg_server.type = SUCCESS;
@@ -143,8 +142,8 @@ int pth_auth(pthread_t tid, sock_fd client_sock_fd) {
             flag = -1;
         }
 
-        struct_to_json(send_json_obj, msg_server);
-
+        struct_to_json(send_json_obj, &msg_server);
+// TODO: size가 struct 크기가 아님, --> string size
         send(
             client_sock_fd,
             json_object_to_json_string(send_json_obj),
@@ -158,7 +157,7 @@ int pth_auth(pthread_t tid, sock_fd client_sock_fd) {
             msg_server.type = FAILED;
             strcpy(msg_server.msg, "there already signed user!");
 
-            struct_to_json(send_json_obj, msg_server);
+            struct_to_json(send_json_obj, &msg_server);
 
             send(
                 client_sock_fd,
@@ -173,7 +172,7 @@ int pth_auth(pthread_t tid, sock_fd client_sock_fd) {
             msg_server.type = SUCCESS;
             strcpy(msg_server.msg, "you success to sign up!");
 
-            struct_to_json(send_json_obj, msg_server);
+            struct_to_json(send_json_obj, &msg_server);
 
             if (send(
                 client_sock_fd,
