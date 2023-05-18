@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <pthread.h>
@@ -15,6 +16,13 @@
 #include "chat_manager.h"
 #include "util.h"
 #include "auth.h"
+
+#include <sys/wait.h>
+int* child_pid_array;
+
+void handler(){
+    wait(NULL);
+}
 
 int init(char* execute_name) {
     mode_t default_mode = 01762;
@@ -37,7 +45,49 @@ int init(char* execute_name) {
 
     chmod(execute_name, 04711);
 
-    // TODO: craete fork for each chat rooms
+    signal(SIGCHLD, handler);
+
+}
+
+void craete_fork() {
+    // child process : child_pid_array
+    DIR *dir_ptr;
+	struct dirent *direntp;
+    int chats_cnt = 0;
+
+    if((dir_ptr = opendir("chats")) == NULL){
+		fprintf(stderr, "cannot open 'chats' dir\n");
+        return;
+    }
+	else{
+		while((direntp = readdir(dir_ptr)) != NULL) {
+			if(strstr(direntp->d_name, ".json") != NULL){
+                chats_cnt++;
+            }
+		}
+		closedir(dir_ptr);
+	}
+
+    child_pid_array = malloc(sizeof(int)*chats_cnt);
+
+    for(int i = 0; i < chats_cnt; ) {
+        pid_t pid = fork();
+        if(pid < 0) {
+            perror("fork");
+            return;
+        }
+        else if(pid == 0) {
+            //printf("child %d pid: %d\n", i, getpid());
+            child_pid_array[i] = getpid();
+            return;
+        }
+        else {
+            i++;
+        }
+    }
+    
+    return;
+    
 }
 
 /**
@@ -120,14 +170,17 @@ int send_chats_list(sock_fd client_sock_fd) {
             flag = -2;
             break;
         }
+        char chat_name[NAME_MAX_LEN];
+        strncpy(chat_name, direntp->d_name, strlen(direntp->d_name) - 5);
+        
         strcat(list, "\"");
-        strcat(list, direntp->d_name);
+        strcat(list, chat_name);
         strcat(list, "\"");
         strcat(list, ",");
 
         cnt++;
     }
-
+    
     if (cnt == 0) {
         list[strlen(list)] = ']';
         list[strlen(list) + 1] = '\0';
@@ -239,9 +292,13 @@ void *client_tcp_handler(void* client_sock_fdp) {
 }
 
 int main (int argc, char** argv) {
+    pid_t p_pid = getpid();
     init(argv[0]);
 
-    server();
+    craete_fork();
+    if(getpid() == p_pid){ //parent process
+        server();
+    }
 
     return 0;
 }
