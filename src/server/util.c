@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <json-c/json.h>
 #include <string.h>
 
@@ -17,7 +18,14 @@ void json_to_strcut(struct json_object* j_obj, struct msg_from_client_t* msgp) {
     }
 }
 
-void struct_to_json(struct json_object* j_obj, struct msg_from_server_t msg) {
-    json_object_object_add(j_obj, "type", json_object_new_int(msg.type));
-    json_object_object_add(j_obj, "msg", json_object_new_string(msg.msg));
+void struct_to_json(struct json_object* j_obj, void* msg) {
+    struct msg_form_t* p = (struct msg_form_t*) msg;
+
+    json_object_object_add(j_obj, "type", json_object_new_int(p->type));
+
+    if (p->type == SUCCESS || p->type == FAILED) {
+        struct msg_from_server_t* msgsp = (struct msg_from_server_t*)msg;
+
+        json_object_object_add(j_obj, "msg", json_object_new_string(msgsp->msg));
+    }
 }
