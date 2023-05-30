@@ -7,7 +7,21 @@
         "types.h": "c",
         "json.h": "c",
         "pthread.h": "c",
-        "string_array.h": "c"
+        "string_array.h": "c",
+        "likao_utils.h": "c",
+        "error.h": "c",
+        "likao_chat.h": "c",
+        "server.h": "c",
+        "utils.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "typeinfo": "c",
+        "globals.h": "c",
+        "unistd.h": "c",
+        "gtk.h": "c",
+        "stdio.h": "c",
+        "appwindow.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

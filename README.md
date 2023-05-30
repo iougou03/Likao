@@ -99,3 +99,5 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
 
 * chat.h 에서 client enum들 통합하기
     그에 따라 클라이언트 코드 수정
+
+* 서버에서 pthead를 잘 지정해서 SIGPIPE를 핸들해줘야함
