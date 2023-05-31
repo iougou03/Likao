@@ -32,6 +32,7 @@ void send_chat_message(int type, const char *room_name) {
     send_dynamic_data_tcp(chat_server_sockg, (void*)json_object_get_string(send_obj));
 
     chat_thread_running = 1;
+
     free(msg.chat_room_name);
     free(msg.name);
     json_object_put(send_obj);
@@ -54,15 +55,28 @@ void on_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
     gtk_widget_destroy(GTK_WIDGET(dialog));
 }
 
-void on_chat_button_enter(GtkWidget *button, gpointer user_data) {
 
+void on_chat_button_enter(GtkWidget *button, gpointer user_data) {
+    GdkDisplay *display = gdk_display_get_default();
+    if (!chat_thread_running) {
+        GdkCursor *cursor = gdk_cursor_new_for_display(display, GDK_HAND1);
+        gdk_window_set_cursor(gtk_widget_get_window(button), cursor);
+    }
+    else {
+        GdkCursor *cursor = gdk_cursor_new_for_display(display, GDK_X_CURSOR);
+        gdk_window_set_cursor(gtk_widget_get_window(button), cursor);
+    }
 }
 
 void on_chat_button_leave(GtkWidget *button, gpointer user_data) {
-
+    GdkDisplay *display = gdk_display_get_default();
+    GdkCursor *cursor = gdk_cursor_new_for_display(display, GDK_LEFT_PTR);
+    gdk_window_set_cursor(gtk_widget_get_window(button), cursor);
 }
 
 void create_chat_room_item(GtkWidget *button, gpointer user_data) {
+    if (chat_thread_running) return;
+
     GtkWidget *dialog = gtk_dialog_new_with_buttons("Type new chat room name",
                                                 GTK_WINDOW(windowg),
                                                 GTK_DIALOG_MODAL,
@@ -98,6 +112,8 @@ void clear_scrolled_window(GtkWidget *scrolledWindow) {
 }
 
 void join_button_handler(GtkWidget *button, gpointer user_data) {
+    if (chat_thread_running) return;
+
     GtkWidget *parentWidget = gtk_widget_get_parent(button);
 
     if (GTK_IS_CONTAINER(parentWidget)) {
@@ -226,7 +242,4 @@ void chat_program(sock_fd_t server_sock, struct user_t user) {
     else {
         pthread_detach(thread_id);
     }
-
-    // free(chat_userg.name);
-    // free(chat_userg.password);
 }
