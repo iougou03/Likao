@@ -21,7 +21,9 @@
         "unistd.h": "c",
         "gtk.h": "c",
         "stdio.h": "c",
-        "appwindow.h": "c"
+        "appwindow.h": "c",
+        "chat_child.h": "c",
+        "inet.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

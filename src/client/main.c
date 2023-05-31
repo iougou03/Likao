@@ -11,8 +11,8 @@
 #include "../lib/likao_utils.h"
 #include "./auth.h"
 #include "./utils.h"
-#include "./appwindow.h"
 #include "./chat.h"
+#include "./appwindow.h"
 
 char* SERVER_IP_ADDRESS = "127.0.0.1";
 
@@ -50,8 +50,6 @@ void terminate(int signum) {
     if (userg.password != NULL)
         free(userg.password);
 
-    g_object_unref(builder);
-
     exit(0);
 }
 
@@ -67,7 +65,6 @@ gboolean check_connection(gpointer data) {
     if (server_sockg == -1) 
         return TRUE;
 
-    gtk_stack_set_visible_child_name(GTK_STACK(stack), "page1");
     auth(&server_sockg, &userg);
 
     return FALSE;
@@ -76,28 +73,33 @@ gboolean check_connection(gpointer data) {
 int main (int argc, char *argv[]) {
     gtk_init(&argc, &argv);
     GError *gerror = NULL;
-
-    builder = gtk_builder_new();
-    if (gtk_builder_add_from_file(builder, "public/default.glade", &gerror) == 0) {
+    builderg = gtk_builder_new();
+    if (gtk_builder_add_from_file(builderg, "public/default.glade", &gerror) == 0) {
         g_printerr("Error loading file: %s\n", gerror->message);
         g_clear_error(&gerror);
         return 1;
     }
 
-    window = GTK_WIDGET(gtk_builder_get_object(builder, "main_window"));
-    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-    g_signal_connect(window, "delete-event", G_CALLBACK(terminate), NULL);
+    stackg = GTK_STACK(gtk_builder_get_object(builderg, "main_stack"));
+    windowg = GTK_WIDGET(gtk_builder_get_object(builderg, "main_window"));
+    g_signal_connect(windowg, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(windowg, "delete-event", G_CALLBACK(terminate), NULL);
 
-    stack = gtk_builder_get_object(builder, "main_stack");
+    gtk_widget_show_all(windowg);
 
-    gtk_widget_show_all(window);
-
-    g_timeout_add(1000, check_connection, NULL);
+    g_timeout_add(1000, check_connection, &windowg);
 
     signal(SIGINT, terminate);
     signal(SIGTERM, terminate);
     signal(SIGQUIT, terminate);
+
+    GtkCssProvider *cssProvider = gtk_css_provider_new();
+    gtk_css_provider_load_from_path(cssProvider, "public/styles.css", NULL);
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), GTK_STYLE_PROVIDER(cssProvider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+
     gtk_main();
+
+    g_object_unref(builderg);
 
     return 0;
 }

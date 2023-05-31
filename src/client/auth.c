@@ -3,14 +3,17 @@
 #include <stdlib.h>
 #include <json-c/json.h>
 #include <gtk/gtk.h>
+#include <signal.h>
 
 #include "../lib/likao_chat.h"
 #include "../lib/likao_utils.h"
 #include "./utils.h"
-#include "./appwindow.h"
 #include "./chat.h"
+#include "./appwindow.h"
 
 struct user_t auth_userg = { NULL, NULL };
+int auth_thread_running = 0, server_sockg;
+pthread_t main_thread;
 
 int get_input(struct user_t *userp) {
     int type, flag;
@@ -67,16 +70,35 @@ void json_to_struct_auth(struct json_object *j_obj, struct to_client_auth_msg_t 
     }
 }
 
+void on_button_enter(GtkWidget *button, gpointer user_data) {
+    GdkDisplay *display = gdk_display_get_default();
+    if (!auth_thread_running) {
+        GdkCursor *cursor = gdk_cursor_new_for_display(display, GDK_HAND1);
+        gdk_window_set_cursor(gtk_widget_get_window(button), cursor);
+    }
+    else {
+        GdkCursor *cursor = gdk_cursor_new_for_display(display, GDK_X_CURSOR);
+        gdk_window_set_cursor(gtk_widget_get_window(button), cursor);
+    }
+}
+
+void on_button_leave(GtkWidget *button, gpointer user_data) {
+    GdkDisplay *display = gdk_display_get_default();
+    GdkCursor *cursor = gdk_cursor_new_for_display(display, GDK_LEFT_PTR);
+    gdk_window_set_cursor(gtk_widget_get_window(button), cursor);
+}
 
 void submit_clicked(GtkButton *button, gpointer user_data) {
+    if (auth_thread_running == 1) return;
+
     sock_fd_t server_sock = GPOINTER_TO_INT(user_data);
 
     struct to_server_auth_msg_t msg = { -1, NULL, NULL };
 
-    GtkEntry *id_entry = GTK_ENTRY(gtk_builder_get_object(builder, "id_entry"));
-    GtkEntry *password_entry = GTK_ENTRY(gtk_builder_get_object(builder, "password_entry"));
+    GtkEntry *id_entry = GTK_ENTRY(gtk_builder_get_object(builderg, "id_entry"));
+    GtkEntry *password_entry = GTK_ENTRY(gtk_builder_get_object(builderg, "password_entry"));
     
-    GtkWidget *sign_up_radio = GTK_WIDGET(gtk_builder_get_object(builder, "sign_up_radio"));
+    GtkWidget *sign_up_radio = GTK_WIDGET(gtk_builder_get_object(builderg, "sign_in_radio"));
     GSList *group = gtk_radio_button_get_group(GTK_RADIO_BUTTON(sign_up_radio));
     GSList *iter = group;
     
@@ -107,67 +129,83 @@ void submit_clicked(GtkButton *button, gpointer user_data) {
     struct_to_json_auth(msg_obj, msg);
     send_dynamic_data_tcp(server_sock, (void*)json_object_get_string(msg_obj));
 
+    dynamic_string_copy(&(auth_userg.name), (char*)id);
+    dynamic_string_copy(&(auth_userg.password), (char*)password);
+
     free(msg.name);
     free(msg.password);
     json_object_put(msg_obj);
 
-    dynamic_string_copy(&(auth_userg.name), (char*)id);
-    dynamic_string_copy(&(auth_userg.password), (char*)password);
+    auth_thread_running = 1;
 }
 
 void *async_recv_pth(void* args) {
-    int auth_success = 0;
-
+    int auth_close = 0;
     sock_fd_t server_sock = *((sock_fd_t*)args);
 
-    while (!auth_success) {
-        sleep(1);
+    while (auth_close == 0) {
+        if (!auth_thread_running) continue;
 
         char *buffer = NULL;
         if (recv_dynamic_data_tcp(server_sock, &buffer) == -1)
             continue;
-        
-        struct json_object *msg_obj = json_tokener_parse(buffer);
 
-        if (msg_obj == NULL) continue;
+        sleep(1);
 
         struct json_object *recv_obj = json_tokener_parse(buffer);
-        struct to_client_auth_msg_t recv_msg = { -1, NULL };
+        
+        if (recv_obj != NULL) {
+            struct to_client_auth_msg_t recv_msg = { -1, NULL };
 
-        json_to_struct_auth(recv_obj, &recv_msg);
-        printf("%s\n", json_object_get_string(recv_obj));
-        if (recv_msg.type == SUCCESS) {
-            auth_success = 1;
+            json_to_struct_auth(recv_obj, &recv_msg);
+
+            if (recv_msg.type == SUCCESS) {
+                auth_close = 1;
+            }
+            auth_thread_running = 0;
+
+            struct json_object *check_msg_obj = json_tokener_parse("{ \"status\":\"complete\"}");
+            send_dynamic_data_tcp(server_sock, (void*)json_object_get_string(check_msg_obj));
+            
+            if (recv_msg.message != NULL)
+                free(recv_msg.message);
+            
+            json_object_put(check_msg_obj);
         }
-        
-        clean_socket_buffer(server_sock);
-        
-        if (recv_msg.message != NULL)
-            free(recv_msg.message);
 
         free(buffer);
-        json_object_put(msg_obj);
+        json_object_put(recv_obj);
+        clean_socket_buffer(server_sock);
     }
 
     tcp_block(server_sock);
-
-    struct json_object *msg_obj = json_tokener_parse("{ \"status\":\"complete\"}");
-    send_dynamic_data_tcp(server_sock, (void*)json_object_get_string(msg_obj));
-
-    gtk_stack_set_visible_child_name(GTK_STACK(stack), "page2");
-
-    printf("finally, %s %s\n", auth_userg.name, auth_userg.password);
-    // chat_program(server_sock, user);
+    
+    pthread_kill(main_thread, SIGUSR1);
 
     pthread_exit(NULL);
 }
 
+void auth_thread_done_callback(int signum) {
+    chat_program(server_sockg, auth_userg);
+    free(auth_userg.name);
+    free(auth_userg.password);
+}
+
 void auth(sock_fd_t *server_sockp, struct user_t *userp) {
-    GtkWidget *submit_button = GTK_WIDGET(gtk_builder_get_object(builder, "submit_button"));
+    main_thread = pthread_self();
+    server_sockg = *server_sockp;
+
+    gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page1");
+
+    GtkWidget *submit_button = GTK_WIDGET(gtk_builder_get_object(builderg, "submit_button"));
 
     tcp_non_block(*server_sockp);
 
     g_signal_connect(submit_button, "clicked", G_CALLBACK(submit_clicked), GINT_TO_POINTER(*server_sockp));
+    g_signal_connect(submit_button, "enter-notify-event", G_CALLBACK(on_button_enter), NULL);
+    g_signal_connect(submit_button, "leave-notify-event", G_CALLBACK(on_button_leave), NULL);
+
+    signal(SIGUSR1, auth_thread_done_callback);
 
     pthread_t thread_id;
     if (pthread_create(&thread_id, NULL, async_recv_pth, (void*)server_sockp) == -1) {

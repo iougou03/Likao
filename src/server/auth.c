@@ -97,72 +97,77 @@ void json_to_struct(struct json_object* j_obj, struct to_server_auth_msg_t* msgp
 }
 
 int pth_auth(sock_fd_t client_sock) {
-    int flag;
+    int flag, running = 1;
     char *raw_msg = NULL;
 
-    if (recv_dynamic_data_tcp(client_sock, &raw_msg) == -1) {
-        fprintf(stderr, "recv_dynamic_data_tcp error\n");
-        return -2;
-    }
+    while (running) {
+        tcp_block(client_sock);
 
-    struct json_object *recv_obj = json_tokener_parse(raw_msg);
-
-    if (recv_obj == NULL) {
-        fprintf(stderr, "wrong format message received\n");
-        return -2;
-    }
-
-    struct to_server_auth_msg_t recv_msg = { -1, NULL, NULL };
-
-    json_to_struct(recv_obj, &recv_msg);
-
-    if ((recv_msg.type == SIGN_IN && sign_in(recv_msg) == 0) ||
-        (recv_msg.type == SIGN_UP && sign_up(recv_msg) == 0)) {
-        flag = 0;
-    }
-    else flag = -1;
-
-    free(recv_msg.name);
-    free(recv_msg.password);
-    json_object_put(recv_obj);
-
-    struct to_client_auth_msg_t send_msg = { -1, NULL };
-
-    if (flag == 0) {
-        send_msg.type = SUCCESS;
-        dynamic_string_copy(&(send_msg.message), "auth success");
-    }
-    else {
-        send_msg.type = FAILED;
-        dynamic_string_copy(&send_msg.message, "auth failed");
-    }
-
-
-    tcp_non_block(client_sock);
-
-    while (1) {
-        char *buffer = NULL;
-        
-        if (recv_dynamic_data_tcp(client_sock, &buffer) != -1) {
-            break;
+        if (recv_dynamic_data_tcp(client_sock, &raw_msg) == -1) {
+            fprintf(stderr, "recv_dynamic_data_tcp error\n");
+            return -2;
         }
+
+        struct json_object *recv_obj = json_tokener_parse(raw_msg);
+
+        if (recv_obj == NULL) {
+            fprintf(stderr, "wrong format message received\n");
+            return -2;
+        }
+
+        struct to_server_auth_msg_t recv_msg = { -1, NULL, NULL };
+
+        json_to_struct(recv_obj, &recv_msg);
+
+        if ((recv_msg.type == SIGN_IN && sign_in(recv_msg) == 0) ||
+            (recv_msg.type == SIGN_UP && sign_up(recv_msg) == 0)) {
+            flag = 0;
+        }
+        else flag = -1;
+
+        free(recv_msg.name);
+        free(recv_msg.password);
+        json_object_put(recv_obj);
+
+        struct to_client_auth_msg_t send_msg = { -1, NULL };
+
+        if (flag == 0) {
+            send_msg.type = SUCCESS;
+            dynamic_string_copy(&(send_msg.message), "auth success");
+        }
+        else {
+            send_msg.type = FAILED;
+            dynamic_string_copy(&send_msg.message, "auth failed");
+        }
+
+
+        tcp_non_block(client_sock);
 
         struct json_object *send_obj = json_object_new_object();
 
         json_object_object_add(send_obj, "type", json_object_new_int64(send_msg.type));
         json_object_object_add(send_obj, "message", json_object_new_string(send_msg.message));
-
-        if (send_dynamic_data_tcp(client_sock, (char*)json_object_get_string(send_obj)) == -1) {
-            fprintf(stderr, "send_dynamic_data_tcp\n");
-        }
         
+        while (1) {
+            char *buffer = NULL;
+            
+            if (recv_dynamic_data_tcp(client_sock, &buffer) != -1) {
+                if (flag == 0) running = 0;
+                break;
+            }
+
+            if (send_dynamic_data_tcp(client_sock, (char*)json_object_get_string(send_obj)) == -1) {
+                fprintf(stderr, "send_dynamic_data_tcp wrong client socket\n");
+                running = 0;
+                break;
+            }
+            sleep(1);
+        }
         json_object_put(send_obj);
+        clean_socket_buffer(client_sock);
 
-        sleep(1);
+        free(send_msg.message);
     }
-
-    tcp_block(client_sock);   
-    free(send_msg.message);
 
     return flag;
 }

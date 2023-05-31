@@ -42,6 +42,6 @@ $(OUT_DIR)/client/client: $(CLIENT_OBJ) $(LIB_OBJ)
 	$(CC) $(CFLAGS) $^ -o $@ $(CLIENT_LIBS) $(LDFLAGS) 
 
 public:
-	cp -r $(CLIENT_PUBLIC) $(OUT_DIR)/client
+	rm -rf $(OUT_DIR)/client/public && cp -rf $(CLIENT_PUBLIC) $(OUT_DIR)/client
 clean:
 	$(RM) $(OUT_DIR)

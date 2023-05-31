@@ -12,9 +12,10 @@
 #include "./utils.h"
 #include "./globals.h"
 #include "./server.h"
+#include "./chat_child.h"
 
 struct env_t ENV = {
-    30,
+    40,
     NULL,
     NULL,
     { NULL, 0 }
@@ -71,6 +72,9 @@ void terminate() {
     if (ENV.child_pids != NULL)
         free(ENV.child_pids);
     
+    if (ENV.child_ports != NULL)
+        free(ENV.child_ports);
+
     if (ENV.child_names.len > 0)
         string_arr_free(&ENV.child_names);
     
@@ -113,9 +117,10 @@ void create_chats_process() {
         }
         else if (pid == 0) {
             ENV.child_pids[i] = getpid();
+            ENV.child_ports[i] = DEFAULT_PORT + (i + 1);
 
-            // handle child process
-            printf("ps%s %d craeted\n", ENV.child_names.data[i], ENV.child_pids[i]);
+            child_server(DEFAULT_PORT + (i + 1));
+
             exit(0);
         }
         else i++;

@@ -10,6 +10,7 @@
 
 #include "../lib/likao_chat.h"
 #include "../lib/likao_utils.h"
+#include "./globals.h"
 
 int send_chats_list(sock_fd_t client_sock) {
     DIR *chats_dfd;
@@ -93,6 +94,7 @@ int create_chat(struct to_server_chat_msg_t msg) {
         else {
             flag = 0;
         }
+        fsync(fd);
 
         json_object_put(chat_obj);
     }
@@ -106,7 +108,6 @@ int create_chat(struct to_server_chat_msg_t msg) {
 }
 
 int join_chat (sock_fd_t client_sock, struct to_server_chat_msg_t msg) {
-    printf("join 1?\n");
     int flag = 0;
     char path[FILENAME_MAX];
     sprintf(path, "chats/%s.json", msg.chat_room_name);
@@ -116,27 +117,25 @@ int join_chat (sock_fd_t client_sock, struct to_server_chat_msg_t msg) {
         return -1;
     }
     fclose(fp);
-    
+
     struct json_object *chat_obj = json_object_from_file(path);
     if (!chat_obj) {
         fprintf(stderr, "%s", json_util_get_last_err());
         return -2;
     }
 
-    struct json_object *users_obj;
-    json_object_object_get_ex(chat_obj, "users", &users_obj);
+    struct json_object *users_arr;
+    json_object_object_get_ex(chat_obj, "users", &users_arr);
 
-    if (json_object_is_type(users_obj, json_type_array)) {
-        json_object_array_add(users_obj, json_object_new_string(msg.name));
-        json_object_object_add(chat_obj, "users", users_obj);
-        json_object_to_file(path, chat_obj);
+    if (json_object_is_type(users_arr, json_type_array)) {
+        json_object_array_add(users_arr, json_object_new_string(msg.name));
+
+        json_object_to_file_ext(path, chat_obj, JSON_C_TO_STRING_PRETTY);
         flag = 0;
-    }
-    else {
-        flag = -2;
-    }
-    printf("join 2?\n");
 
+    }else flag = -2;
+
+    json_object_put(chat_obj);
     return flag;
 }
 
@@ -160,33 +159,66 @@ void json_to_struct_chat(struct json_object *j_obj, struct to_server_chat_msg_t 
 void chat_manager(sock_fd_t client_sock) {
     printf("chat manager on\n");
     fflush(stdout);
-    // while() {}
+
+    tcp_block(client_sock);
 
     if (send_chats_list(client_sock) < 0) return;
     char *msg_raw = NULL;
     
-    if (recv_dynamic_data_tcp(client_sock, &msg_raw) == -1) return;
+    int running = 1;
+    while (running) {
+        if (recv_dynamic_data_tcp(client_sock, &msg_raw) == -1) break;
 
-    struct json_object *recv_obj = json_tokener_parse(msg_raw);
-    struct to_server_chat_msg_t recv_msg = {-1, NULL, NULL };
+        struct json_object *recv_obj = json_tokener_parse(msg_raw);
 
-    json_to_struct_chat(recv_obj, &recv_msg);
+        if (recv_obj == NULL) continue;
 
-    if (recv_msg.type == JOIN) {
-        if (join_chat(client_sock, recv_msg) == 0){
-            printf("join success! via JOIN\n");
+        struct to_server_chat_msg_t recv_msg = {-1, NULL, NULL };
+
+        json_to_struct_chat(recv_obj, &recv_msg);
+
+        struct to_client_chat_msg_t send_msg = { -1, -1 };
+
+        if (recv_msg.type == JOIN) {
+            if (join_chat(client_sock, recv_msg) == 0){
+                send_msg.type = SUCCESS;
+            }
+            else {
+                send_msg.type = FAILED;
+            }
+            struct json_object *send_obj = json_object_new_object();
+            json_object_object_add(send_obj, "type", json_object_new_int(send_msg.type));
+            json_object_object_add(send_obj, "chat_port", json_object_new_int(send_msg.chat_port));
+
+            send_dynamic_data_tcp(client_sock, (char*)json_object_get_string(send_obj));
+            
+            json_object_put(send_obj);
         }
-        // else if (== -1) send wrong room_name
-    }
-    else if (recv_msg.type == CREATE) {
-        if (create_chat(recv_msg) == 0) {
-            // if (join_chat(client_sock, recv_msg) == 0) {
-            //     printf("join success! via CREATE\n");
-            // }
+        else if (recv_msg.type == CREATE) {
+            if (create_chat(recv_msg) == 0) {
+                if (join_chat(client_sock, recv_msg) == 0) {
+                    send_msg.type = SUCCESS;
+                }
+                else {
+                    send_msg.type = FAILED;
+                }
+            }
+            else {
+                send_msg.type = FAILED;
+            }
+
+            struct json_object *send_obj = json_object_new_object();
+            json_object_object_add(send_obj, "type", json_object_new_int(send_msg.type));
+            json_object_object_add(send_obj, "chat_port", json_object_new_int(send_msg.chat_port));
+
+            send_dynamic_data_tcp(client_sock, (char*)json_object_get_string(send_obj));
+            
+            json_object_put(send_obj);
         }
-        // else if (== -1) send exist room_name
 
+        json_object_put(recv_obj);
+        free(msg_raw);
+        msg_raw = NULL;
     }
 
-    json_object_put(recv_obj);
 }

@@ -33,12 +33,12 @@ void server_on() {
         exit(1);
     }
 
-    if (listen(server_sock, 40) == -1) {
+    if (listen(server_sock, ENV.max_password_cnt) == -1) {
         perror("listen");
         exit(1);
     }
 
-    printf("The server has opened at port %d\n", DEFAULT_PORT);
+    printf("The server has opened at port %d\nmax people: %d\n", DEFAULT_PORT, ENV.max_password_cnt);
     fflush(stdout);
 
     pthread_t thread_id;
@@ -69,10 +69,7 @@ void *client_tcp_handler(void *client_sockp) {
 
     sock_fd_t client_sock = *((int*)client_sockp);
 
-    int flag;
-    while ((flag = pth_auth(client_sock)) == -1);
-
-    if (flag == 0)
+    if (pth_auth(client_sock) == 0)
         chat_manager(client_sock);
 
     shutdown(client_sock, SHUT_RDWR);

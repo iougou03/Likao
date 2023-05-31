@@ -1,0 +1,12 @@
+.loading-header {
+    font-size: 32px;
+    font-weight: bold;
+}
+.chat-room-list {
+    padding: 10px;
+}
+.chat-room-item {
+    padding: 10px;
+    border: 2px black solid;
+    border-radius: 7px;
+}

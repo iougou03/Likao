@@ -1,13 +1,13 @@
 #include <gtk/gtk.h>
 
 #include "../lib/likao_chat.h"
+#include "./utils.h"
 
-#if !defined(HEADER_APP_WINDOW)
+#ifndef HEADER_APP_WINDOW
 #define HEADER_APP_WINDOW
 
-GtkBuilder *builder;
-GtkWidget *window;
-GObject *stack;
-GObject *gtk_stack;
+GtkBuilder *builderg;
+GtkWidget *windowg;
+GtkStack *stackg;
 
-#endif // HEADER_APP_WINDOW
+#endif
