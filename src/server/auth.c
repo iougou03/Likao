@@ -137,7 +137,7 @@ int pth_auth(sock_fd_t client_sock) {
         }
         else {
             send_msg.type = FAILED;
-            dynamic_string_copy(&send_msg.message, "auth failed");
+            dynamic_string_copy(&(send_msg.message), "auth failed");
         }
 
 
@@ -166,7 +166,8 @@ int pth_auth(sock_fd_t client_sock) {
         json_object_put(send_obj);
         clean_socket_buffer(client_sock);
 
-        free(send_msg.message);
+        if (send_msg.message != NULL)
+            free(send_msg.message);
     }
 
     return flag;

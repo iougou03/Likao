@@ -15,42 +15,6 @@ struct user_t auth_userg = { NULL, NULL };
 int auth_thread_running = 0, server_sockg;
 pthread_t main_thread;
 
-int get_input(struct user_t *userp) {
-    int type, flag;
-    printf("choose mode (1 = sign in / 2 = sign up)\n>");
-    fflush(stdout);
-    scanf("%d", &type);
-
-    if (type == 1) {
-        flag = SIGN_IN;
-    }
-    else if (type == 2) {
-        flag = SIGN_UP;
-    }
-    else {
-        flag = -1;
-    }
-
-    if (flag == SIGN_IN || flag == SIGN_UP) {
-        char input[BUFSIZ];
-        printf("type name: ");
-        scanf("%s", input);
-        
-        userp->name = (char*)malloc(sizeof(char) * (strlen(input) + 1));
-        strcpy(userp->name, input);
-        userp->name[strlen(input)] = '\0';
-
-        printf("type password: ");
-        scanf("%s", input);
-        
-        userp->password = (char*)malloc(sizeof(char) * (strlen(input) + 1));
-        strcpy(userp->password, input);
-        userp->password[strlen(input)] = '\0';
-    }
-
-    return flag;
-}
-
 void struct_to_json_auth(struct json_object *j_obj, struct to_server_auth_msg_t msg) {
     json_object_object_add(j_obj, "type", json_object_new_int(msg.type));
 
@@ -132,8 +96,10 @@ void submit_clicked(GtkButton *button, gpointer user_data) {
     dynamic_string_copy(&(auth_userg.name), (char*)id);
     dynamic_string_copy(&(auth_userg.password), (char*)password);
 
-    free(msg.name);
-    free(msg.password);
+    if (msg.name != NULL)
+        free(msg.name);
+    if (msg.password != NULL)
+        free(msg.password);
     json_object_put(msg_obj);
 
     auth_thread_running = 1;
@@ -147,10 +113,10 @@ void *async_recv_pth(void* args) {
         if (!auth_thread_running) continue;
 
         char *buffer = NULL;
-        if (recv_dynamic_data_tcp(server_sock, &buffer) == -1)
+        if (recv_dynamic_data_tcp(server_sock, &buffer) == -1) {
+            sleep(1);
             continue;
-
-        sleep(1);
+        }
 
         struct json_object *recv_obj = json_tokener_parse(buffer);
         
@@ -162,33 +128,34 @@ void *async_recv_pth(void* args) {
             if (recv_msg.type == SUCCESS) {
                 auth_close = 1;
             }
+            else {
+                g_print("auth failed\n");
+            }
+
             auth_thread_running = 0;
 
-            struct json_object *check_msg_obj = json_tokener_parse("{ \"status\":\"complete\"}");
+            struct json_object *check_msg_obj = json_tokener_parse("{\"status\":\"complete\"}");
             send_dynamic_data_tcp(server_sock, (void*)json_object_get_string(check_msg_obj));
             
-            if (recv_msg.message != NULL)
-                free(recv_msg.message);
+            if (recv_msg.message != NULL) free(recv_msg.message);
             
             json_object_put(check_msg_obj);
+        
+            free(buffer);
+            json_object_put(recv_obj);
         }
-
-        free(buffer);
-        json_object_put(recv_obj);
         clean_socket_buffer(server_sock);
-    }
-
-    tcp_block(server_sock);
-    
+    }    
     pthread_kill(main_thread, SIGUSR1);
 
     pthread_exit(NULL);
 }
 
 void auth_thread_done_callback(int signum) {
+    tcp_block(server_sockg);
     chat_program(server_sockg, auth_userg);
-    free(auth_userg.name);
-    free(auth_userg.password);
+    // free(auth_userg.name);
+    // free(auth_userg.password);
 }
 
 void auth(sock_fd_t *server_sockp, struct user_t *userp) {

@@ -3,16 +3,23 @@
 #include <json-c/json.h>
 #include <gtk/gtk.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
 
 #include "../lib/likao_chat.h"
 #include "../lib/likao_utils.h"
 #include "./utils.h"
 #include "./appwindow.h"
+#include "./utils.h"
 
 int chat_thread_running = 0;
 struct user_t chat_userg;
 sock_fd_t chat_server_sockg;
 pthread_t main_thread;
+
+int room_portg;
 
 void struct_to_json_chat(struct json_object *j_obj, struct to_server_chat_msg_t msg) {
     json_object_object_add(j_obj, "type", json_object_new_int(msg.type));
@@ -107,8 +114,11 @@ GtkWidget *get_child_widget(GtkContainer *container) {
 
 void clear_scrolled_window(GtkWidget *scrolledWindow) {
     GtkWidget *childWidget = get_child_widget(GTK_CONTAINER(scrolledWindow));
-    gtk_container_remove(GTK_CONTAINER(scrolledWindow), childWidget);
-    g_object_unref(childWidget);
+
+    if (childWidget != NULL) {
+        gtk_container_remove(GTK_CONTAINER(scrolledWindow), childWidget);
+        g_object_unref(childWidget);
+    }
 }
 
 void join_button_handler(GtkWidget *button, gpointer user_data) {
@@ -140,6 +150,8 @@ void print_chat_list(sock_fd_t *server_sockp) {
     GtkWidget *scrolled_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
     int len = json_object_array_length(chat_list_arr);
 
+    GtkWidget *viewport = gtk_viewport_new(NULL, NULL);
+
     for (int i = 0 ; i < len ; i++) {
         struct json_object *elem = json_object_array_get_idx(chat_list_arr, i);
         const char *room_name = json_object_get_string(elem);
@@ -156,7 +168,8 @@ void print_chat_list(sock_fd_t *server_sockp) {
         gtk_box_pack_start(GTK_BOX(scrolled_box), chat_box, FALSE, TRUE, 0);
     }
 
-    gtk_container_add(GTK_CONTAINER(scrolled_window), scrolled_box);
+    gtk_container_add(GTK_CONTAINER(viewport), scrolled_box);
+    gtk_container_add(GTK_CONTAINER(scrolled_window), viewport);
 
     gtk_widget_show_all(windowg);
     json_object_put(chat_list_arr);
@@ -177,21 +190,20 @@ void json_to_struct_chat(struct json_object *j_obj, struct to_client_chat_msg_t 
 void *async_chat_manager_pth(void* args) {
     int chat_close = 0;
 
-    while (chat_close == 0) {
-        if (!chat_thread_running) continue;
+    tcp_non_block(chat_server_sockg);
 
+    while (chat_close == 0) {
         char *buffer = NULL;
         if (recv_dynamic_data_tcp(chat_server_sockg, &buffer) != 0) {
             struct json_object *recv_obj = json_tokener_parse(buffer);
 
             if (recv_obj != NULL) {
-                printf("buffer %s\n", buffer);
                 struct to_client_chat_msg_t recv_msg = { -1, -1 };
 
                 json_to_struct_chat(recv_obj, &recv_msg);
-
-                if (recv_msg.type == SUCCESS) {
+                if (recv_msg.type == SUCCESS && recv_msg.chat_port > 0) {
                     chat_close = 1;
+                    room_portg = recv_msg.chat_port;
                 }
             }
             chat_thread_running = 0;
@@ -199,6 +211,7 @@ void *async_chat_manager_pth(void* args) {
             free(buffer);
             json_object_put(recv_obj);
         }
+        sleep(1);
     }
 
     pthread_kill(main_thread, SIGUSR2);
@@ -206,13 +219,70 @@ void *async_chat_manager_pth(void* args) {
     pthread_exit(NULL);
 }
 
-void chat_mode() {
 
+sock_fd_t child_chat_sockg;
+struct sockaddr_in child_chat_addrg;
+
+void enter_log(GtkWidget *button, gpointer user_data) {
+
+    GtkEntry *chat_log_entry = GTK_ENTRY(gtk_builder_get_object(builderg, "chat_log_entry"));
+
+    const gchar *log = gtk_entry_get_text(chat_log_entry);
+
+    printf("sending %s %d\n", log, room_portg);
+    socklen_t size = sizeof(struct sockaddr_in);
+    ssize_t sent_bytes = sendto(child_chat_sockg, log, strlen(log), 0,
+                                (struct sockaddr *)&child_chat_addrg, size);
+    
+    gtk_entry_set_text(GTK_ENTRY(chat_log_entry), "");
+    
+    if (sent_bytes == -1) {
+        perror("Failed to send data");
+        return;
+    }
+    
+}
+
+void chat_mode() {
+    gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page3");
+
+    // Create a UDP socket
+    if ((child_chat_sockg = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        perror("Failed to create socket");
+        return;
+    }
+
+    // Set up the server address structure
+    memset(&child_chat_addrg, 0, sizeof(child_chat_addrg));
+    child_chat_addrg.sin_family = AF_INET;
+    child_chat_addrg.sin_port = htons(room_portg);
+    if (inet_pton(AF_INET, SERVER_IP_ADDRESS, &(child_chat_addrg.sin_addr)) <= 0) {
+        perror("Invalid server IP address");
+        return;
+    }
+
+    if (connect(child_chat_sockg, (struct sockaddr *)&child_chat_addrg, sizeof(child_chat_addrg)) < 0) {
+        perror("Failed to connect to the server");
+        exit(EXIT_FAILURE);
+    }
+
+    struct json_object *welcome_obj = json_object_new_object();
+    json_object_object_add(welcome_obj, "name", json_object_new_string(chat_userg.name));
+    char *msg = (char*)json_object_get_string(welcome_obj);
+
+    send_dynamic_data_tcp(child_chat_sockg, msg);
+
+    json_object_put(welcome_obj);
+
+    GtkWidget *submit_button = GTK_WIDGET(gtk_builder_get_object(builderg, "submit_chat_log_button"));
+
+    g_signal_connect(submit_button, "clicked", G_CALLBACK(enter_log), NULL);
+
+    // close(child_chat_sock);
 }
 
 void chat_thread_done_callback(int signum) {
-    gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page3");
-    
+    chat_mode();
 
     free(chat_userg.name);
     free(chat_userg.password);

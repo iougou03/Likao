@@ -58,6 +58,7 @@ void init(char* filename) {
 
     signal(SIGINT, terminate);
     signal(SIGCHLD, sigchld_handler);
+    signal(SIGTERM, terminate);
     signal(SIGPIPE, SIG_IGN);
 
     if (pthread_mutex_init(&ENV.mutex, NULL) != 0) {
@@ -71,8 +72,11 @@ void sigchld_handler() {
 }
 
 void terminate() {
-    if (ENV.child_pids != NULL)
+    if (ENV.child_pids != NULL) {
+        for (int i = 0 ; i < ENV.child_names.len ; i++)
+            kill(ENV.child_pids[i], SIGKILL);
         free(ENV.child_pids);
+    }
     
     if (ENV.child_ports != NULL)
         free(ENV.child_ports);
@@ -82,12 +86,13 @@ void terminate() {
 
     if (ENV.clients_pipe.len > 0) {
         for (int i = 0 ; i < ENV.clients_pipe.len ; i++) {
-            free(ENV.clients_pipe.data[i]);
+            free(ENV.clients_pipe.pipe_arr[i]);
         }   
 
-        free(ENV.clients_pipe.data);
+        free(ENV.clients_pipe.pipe_arr);
     }
     
     pthread_mutex_destroy(&ENV.mutex);
+
     exit(0);
 }

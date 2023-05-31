@@ -14,8 +14,6 @@
 #include "./chat.h"
 #include "./appwindow.h"
 
-char* SERVER_IP_ADDRESS = "127.0.0.1";
-
 sock_fd_t server_sockg = -1;
 struct user_t userg;
 
@@ -71,6 +69,8 @@ gboolean check_connection(gpointer data) {
 }
 
 int main (int argc, char *argv[]) {
+    dynamic_string_copy(&SERVER_IP_ADDRESS, "127.0.0.1");
+
     gtk_init(&argc, &argv);
     GError *gerror = NULL;
     builderg = gtk_builder_new();

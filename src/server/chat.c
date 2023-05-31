@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <dirent.h>
 #include <json-c/json.h>
 #include <json-c/json_object.h>
@@ -95,10 +96,17 @@ int create_chat(struct to_server_chat_msg_t msg) {
             flag = -2;
         }
         else {
-            flag = 0;
-        }
-        fsync(fd);
+            fsync(fd);
 
+            pthread_mutex_lock(&ENV.mutex);
+
+            string_arr_append(&ENV.child_names, msg.chat_room_name);
+            child_server(DEFAULT_PORT + ENV.child_names.len);
+            flag = DEFAULT_PORT + ENV.child_names.len;
+
+            pthread_mutex_unlock(&ENV.mutex);
+
+        }
         json_object_put(chat_obj);
     }
     else flag = -1;
@@ -106,13 +114,6 @@ int create_chat(struct to_server_chat_msg_t msg) {
     free(filename);
     close(fd);
     chdir("..");
-
-    pthread_mutex_lock(&ENV.mutex);
-
-    string_arr_append(&ENV.child_names, msg.chat_room_name);
-    child_server(DEFAULT_PORT + ENV.child_names.len);
-
-    pthread_mutex_unlock(&ENV.mutex);
 
     return flag;
 }
@@ -141,8 +142,17 @@ int join_chat (sock_fd_t client_sock, struct to_server_chat_msg_t msg) {
         json_object_array_add(users_arr, json_object_new_string(msg.name));
 
         json_object_to_file_ext(path, chat_obj, JSON_C_TO_STRING_PRETTY);
-        flag = 0;
 
+        pthread_mutex_lock(&ENV.mutex);
+
+        for (int i = 0 ; i < ENV.child_names.len ; i++) {
+            if (strcmp(ENV.child_names.data[i], msg.chat_room_name) == 0) {
+                flag = DEFAULT_PORT + i + 1;
+                break;
+            }
+        }
+
+        pthread_mutex_unlock(&ENV.mutex);
     }else flag = -2;
 
     json_object_put(chat_obj);
@@ -185,6 +195,9 @@ void chat_manager(sock_fd_t client_sock, int client_idx) {
     char *msg_raw = NULL;
     while (running) {
         if (recv_dynamic_data_tcp(client_sock, &msg_raw) == -1) {
+            if (send(client_sock, " ", sizeof(char), 0) == -1) {
+                break;
+            }
             sleep(1);
             continue;
         }
@@ -203,8 +216,10 @@ void chat_manager(sock_fd_t client_sock, int client_idx) {
         struct to_client_chat_msg_t send_msg = { -1, -1 };
 
         if (recv_msg.type == JOIN) {
-            if (join_chat(client_sock, recv_msg) == 0){
+            int room_port;
+            if ((room_port = join_chat(client_sock, recv_msg)) > 0){
                 send_msg.type = SUCCESS;
+                send_msg.chat_port = room_port;
             }
             else {
                 send_msg.type = FAILED;
@@ -218,9 +233,11 @@ void chat_manager(sock_fd_t client_sock, int client_idx) {
             json_object_put(send_obj);
         }
         else if (recv_msg.type == CREATE) {
-            if (create_chat(recv_msg) == 0) {
-                if (join_chat(client_sock, recv_msg) == 0) {
+            int room_port;
+            if ((room_port = create_chat(recv_msg)) > 0) {
+                if (join_chat(client_sock, recv_msg) > 0) {
                     send_msg.type = SUCCESS;
+                    send_msg.chat_port = room_port;
                 }
                 else {
                     send_msg.type = FAILED;
@@ -240,13 +257,14 @@ void chat_manager(sock_fd_t client_sock, int client_idx) {
 
             int fire_all_update = SIGUSR1;
 
-            if (send_msg.type == SUCCESS) {
-                write(ENV.clients_pipe.pipe_arr[client_idx][1], &fire_all_update, sizeof(int));
-            }
+            // if (send_msg.type == SUCCESS) {
+            //     write(ENV.clients_pipe.pipe_arr[client_idx][1], &fire_all_update, sizeof(int));
+            // }
         }
 
         json_object_put(recv_obj);
     }
-    free(msg_raw);
+    if (msg_raw == NULL)
+        free(msg_raw);
 
 }

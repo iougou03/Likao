@@ -24,7 +24,11 @@
         "appwindow.h": "c",
         "chat_child.h": "c",
         "inet.h": "c",
-        "dirent.h": "c"
+        "dirent.h": "c",
+        "stdlib.h": "c",
+        "system_error": "c",
+        "cmath": "c",
+        "shm.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }
