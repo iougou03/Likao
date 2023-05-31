@@ -12,24 +12,21 @@
 #include "./utils.h"
 #include "./globals.h"
 #include "./server.h"
-#include "./chat_child.h"
 
 struct env_t ENV = {
     40,
     NULL,
     NULL,
+    { NULL, 0 },
     { NULL, 0 }
 };
 
 int main(int argc, char** argv) {
     void init(char*);
     void terminate();
-    void create_chats_process();
 
     init(argv[0]);
 
-    create_chats_process();
-    
     server_on();
 
     terminate();
@@ -62,6 +59,11 @@ void init(char* filename) {
     signal(SIGINT, terminate);
     signal(SIGCHLD, sigchld_handler);
     signal(SIGPIPE, SIG_IGN);
+
+    if (pthread_mutex_init(&ENV.mutex, NULL) != 0) {
+        fprintf(stderr, "Failed to initialize mutex\n");
+        exit(0);
+    }
 }
 
 void sigchld_handler() {
@@ -77,52 +79,15 @@ void terminate() {
 
     if (ENV.child_names.len > 0)
         string_arr_free(&ENV.child_names);
+
+    if (ENV.clients_pipe.len > 0) {
+        for (int i = 0 ; i < ENV.clients_pipe.len ; i++) {
+            free(ENV.clients_pipe.data[i]);
+        }   
+
+        free(ENV.clients_pipe.data);
+    }
     
+    pthread_mutex_destroy(&ENV.mutex);
     exit(0);
-}
-
-void create_chats_process() {
-    DIR *dir_ptr;
-    struct dirent *direntp;
-    int chats_cnt = 0, len = 0;
-    char *room_name;
-
-    if ((dir_ptr = opendir("chats")) == NULL) {
-        fprintf(stderr, "cannot open chats directory\n");
-        exit(1);
-    }
-
-    while ((direntp = readdir(dir_ptr)) != NULL) {
-        if (strstr(direntp->d_name, ".json") != NULL) {
-            chats_cnt++;
-            len = strlen(direntp->d_name) - 5;
-            room_name = (char*)malloc(sizeof(char) * len);
-
-            strncpy(room_name, direntp->d_name, len);
-
-            string_arr_append(&ENV.child_names, room_name);
-        }
-    }
-
-    closedir(dir_ptr);
-
-    ENV.child_pids = (int*)malloc(sizeof(int) * chats_cnt);
-
-    for (int i = 0 ; i < chats_cnt ;) {
-        pid_t pid = fork();
-
-        if (pid < 0) {
-            perror("fork");
-            exit(1);
-        }
-        else if (pid == 0) {
-            ENV.child_pids[i] = getpid();
-            ENV.child_ports[i] = DEFAULT_PORT + (i + 1);
-
-            child_server(DEFAULT_PORT + (i + 1));
-
-            exit(0);
-        }
-        else i++;
-    }
 }

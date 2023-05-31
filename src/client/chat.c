@@ -233,6 +233,7 @@ void chat_program(sock_fd_t server_sock, struct user_t user) {
     g_signal_connect(submit_button, "leave-notify-event", G_CALLBACK(on_chat_button_leave), NULL);
 
     signal(SIGUSR2, chat_thread_done_callback);
+    
     print_chat_list(&server_sock);
 
     pthread_t thread_id;

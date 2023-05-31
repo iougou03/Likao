@@ -7,6 +7,8 @@
 #include "../lib/likao_chat.h"
 
 void child_server(int port) {
+    printf("child UDP server open at port %d\n",port);
+
     sock_fd_t child_socket_fd;
     struct sockaddr_in server_addr, client_addr;
 
@@ -14,7 +16,7 @@ void child_server(int port) {
 
     if (child_socket_fd == -1) {
         perror("socket");
-        return -2;
+        exit(1);
     }
 
     memset(&server_addr, 0, sizeof(server_addr));
@@ -25,10 +27,9 @@ void child_server(int port) {
 
     if (bind(child_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr))== -1) {
         perror("bind");
-        return -2;
+        exit(1);
     }
 
-    printf("child UDP server open at port %d\n",port);
 
     // while (1) {
 

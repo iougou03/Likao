@@ -7,10 +7,13 @@
 #include <dirent.h>
 #include <json-c/json.h>
 #include <json-c/json_object.h>
+#include <signal.h>
+#include <pthread.h>
 
 #include "../lib/likao_chat.h"
 #include "../lib/likao_utils.h"
 #include "./globals.h"
+#include "./chat_child.h"
 
 int send_chats_list(sock_fd_t client_sock) {
     DIR *chats_dfd;
@@ -104,6 +107,13 @@ int create_chat(struct to_server_chat_msg_t msg) {
     close(fd);
     chdir("..");
 
+    pthread_mutex_lock(&ENV.mutex);
+
+    string_arr_append(&ENV.child_names, msg.chat_room_name);
+    child_server(DEFAULT_PORT + ENV.child_names.len);
+
+    pthread_mutex_unlock(&ENV.mutex);
+
     return flag;
 }
 
@@ -155,23 +165,36 @@ void json_to_struct_chat(struct json_object *j_obj, struct to_server_chat_msg_t 
     }
 }
 
+void handle_chat_room_update() {
+    printf("received, should print chat room again\n");
+    fflush(stdout);
+}
 
-void chat_manager(sock_fd_t client_sock) {
+void chat_manager(sock_fd_t client_sock, int client_idx) {
     printf("chat manager on\n");
     fflush(stdout);
 
-    tcp_block(client_sock);
+    signal(SIGUSR1, handle_chat_room_update);
 
     if (send_chats_list(client_sock) < 0) return;
-    char *msg_raw = NULL;
-    
+
+    tcp_non_block(client_sock);
+
     int running = 1;
+
+    char *msg_raw = NULL;
     while (running) {
-        if (recv_dynamic_data_tcp(client_sock, &msg_raw) == -1) break;
+        if (recv_dynamic_data_tcp(client_sock, &msg_raw) == -1) {
+            sleep(1);
+            continue;
+        }
 
         struct json_object *recv_obj = json_tokener_parse(msg_raw);
 
-        if (recv_obj == NULL) continue;
+        if (recv_obj == NULL) {
+            free(msg_raw);
+            continue;
+        }
 
         struct to_server_chat_msg_t recv_msg = {-1, NULL, NULL };
 
@@ -214,11 +237,16 @@ void chat_manager(sock_fd_t client_sock) {
             send_dynamic_data_tcp(client_sock, (char*)json_object_get_string(send_obj));
             
             json_object_put(send_obj);
+
+            int fire_all_update = SIGUSR1;
+
+            if (send_msg.type == SUCCESS) {
+                write(ENV.clients_pipe.pipe_arr[client_idx][1], &fire_all_update, sizeof(int));
+            }
         }
 
         json_object_put(recv_obj);
-        free(msg_raw);
-        msg_raw = NULL;
     }
+    free(msg_raw);
 
 }

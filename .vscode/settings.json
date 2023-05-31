@@ -23,7 +23,8 @@
         "stdio.h": "c",
         "appwindow.h": "c",
         "chat_child.h": "c",
-        "inet.h": "c"
+        "inet.h": "c",
+        "dirent.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

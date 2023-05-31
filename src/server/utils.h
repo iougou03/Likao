@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <json-c/json.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "../lib/likao_chat.h"
 #include "../lib/likao_utils.h"
@@ -11,6 +12,12 @@
 // void json_to_struct(struct json_object*, struct to_server_msg_t*);
 
 // void struct_to_json(struct json_object*, void*);
+
+struct client_arr_t {
+    int **pipe_arr;
+    int len;
+    pthread_t *tid_arr;
+};
 
 struct user_json_t {
     char *name;
