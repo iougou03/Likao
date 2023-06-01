@@ -69,7 +69,7 @@ gboolean check_connection(gpointer data) {
 }
 
 int main (int argc, char *argv[]) {
-    dynamic_string_copy(&SERVER_IP_ADDRESS, "127.0.0.1");
+    dynamic_string_copy(&SERVER_IP_ADDRESS, "");
 
     gtk_init(&argc, &argv);
     GError *gerror = NULL;

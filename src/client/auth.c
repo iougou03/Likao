@@ -137,7 +137,7 @@ void *async_recv_pth(void* args) {
             struct json_object *check_msg_obj = json_tokener_parse("{\"status\":\"complete\"}");
             send_dynamic_data_tcp(server_sock, (void*)json_object_get_string(check_msg_obj));
             
-            // if (recv_msg.message != NULL) free(recv_msg.message);
+            if (recv_msg.message != NULL) free(recv_msg.message);
             
             json_object_put(check_msg_obj);
         
@@ -155,8 +155,6 @@ void *async_recv_pth(void* args) {
 void auth_thread_done_callback(int signum) {
     tcp_block(server_sockg);
     chat_program(server_sockg, auth_userg);
-    // free(auth_userg.name);
-    // free(auth_userg.password);
 }
 
 void auth(sock_fd_t *server_sockp, struct user_t *userp) {

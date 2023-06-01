@@ -143,35 +143,42 @@ void print_chat_list(sock_fd_t *server_sockp) {
 
     struct json_object *chat_list_arr = json_tokener_parse(msg_raw);
 
-    GtkWidget *scrolled_window = GTK_WIDGET(gtk_builder_get_object(builderg, "chat_list_scrolled_window"));
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-    clear_scrolled_window(scrolled_window);
-
-    GtkWidget *scrolled_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    int len = json_object_array_length(chat_list_arr);
-
-    GtkWidget *viewport = gtk_viewport_new(NULL, NULL);
-
-    for (int i = 0 ; i < len ; i++) {
-        struct json_object *elem = json_object_array_get_idx(chat_list_arr, i);
-        const char *room_name = json_object_get_string(elem);
-        GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
-
-        GtkWidget *room_name_label = gtk_label_new(room_name);
-        GtkWidget *join_button = gtk_button_new_with_label("Join");
-
-        gtk_box_pack_start(GTK_BOX(chat_box), room_name_label, TRUE, TRUE, 0);
-        gtk_box_pack_start(GTK_BOX(chat_box), join_button, FALSE, FALSE, 0);
-
-        g_signal_connect(join_button, "clicked", G_CALLBACK(join_button_handler), GINT_TO_POINTER(*server_sockp));
-
-        gtk_box_pack_start(GTK_BOX(scrolled_box), chat_box, FALSE, TRUE, 0);
+    if (chat_list_arr == NULL) {
+        free(msg_raw);
+        return;
     }
 
-    gtk_container_add(GTK_CONTAINER(viewport), scrolled_box);
-    gtk_container_add(GTK_CONTAINER(scrolled_window), viewport);
+    if (json_object_is_type(chat_list_arr, json_type_array)) {
+        GtkWidget *scrolled_window = GTK_WIDGET(gtk_builder_get_object(builderg, "chat_list_scrolled_window"));
+        gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+        clear_scrolled_window(scrolled_window);
 
-    gtk_widget_show_all(windowg);
+        GtkWidget *scrolled_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+        int len = json_object_array_length(chat_list_arr);
+
+        GtkWidget *viewport = gtk_viewport_new(NULL, NULL);
+
+        for (int i = 0 ; i < len ; i++) {
+            struct json_object *elem = json_object_array_get_idx(chat_list_arr, i);
+            const char *room_name = json_object_get_string(elem);
+            GtkWidget *chat_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+
+            GtkWidget *room_name_label = gtk_label_new(room_name);
+            GtkWidget *join_button = gtk_button_new_with_label("Join");
+
+            gtk_box_pack_start(GTK_BOX(chat_box), room_name_label, TRUE, TRUE, 0);
+            gtk_box_pack_start(GTK_BOX(chat_box), join_button, FALSE, FALSE, 0);
+
+            g_signal_connect(join_button, "clicked", G_CALLBACK(join_button_handler), GINT_TO_POINTER(*server_sockp));
+
+            gtk_box_pack_start(GTK_BOX(scrolled_box), chat_box, FALSE, TRUE, 0);
+        }
+
+        gtk_container_add(GTK_CONTAINER(viewport), scrolled_box);
+        gtk_container_add(GTK_CONTAINER(scrolled_window), viewport);
+
+        gtk_widget_show_all(windowg);
+    }
     json_object_put(chat_list_arr);
     free(msg_raw);
 }
