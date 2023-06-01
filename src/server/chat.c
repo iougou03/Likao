@@ -15,6 +15,7 @@
 #include "../lib/likao_utils.h"
 #include "./globals.h"
 #include "./chat_child.h"
+#include "./utils.h"
 
 int send_chats_list(sock_fd_t client_sock) {
     DIR *chats_dfd;
@@ -69,7 +70,7 @@ int send_chats_list(sock_fd_t client_sock) {
     return 0;
 }
 
-int create_chat(struct to_server_chat_msg_t msg) {
+int create_chat(struct to_server_chat_msg_t msg, int client_idx) {
     if (chdir("./chats") == -1) {
         fprintf(stderr, "there error while entering chats/, check init()");
         return -2;
@@ -101,11 +102,13 @@ int create_chat(struct to_server_chat_msg_t msg) {
             pthread_mutex_lock(&ENV.mutex);
 
             string_arr_append(&ENV.child_names, msg.chat_room_name);
-            child_server(DEFAULT_PORT + ENV.child_names.len);
+            // child_server(DEFAULT_PORT + ENV.child_names.len);
             flag = DEFAULT_PORT + ENV.child_names.len;
 
             pthread_mutex_unlock(&ENV.mutex);
 
+            struct pipe_msg_t pmsg = { CREATE_CHILD, flag };
+            write(ENV.clients_pipe.pipe_arr[client_idx][1], &pmsg, sizeof(struct pipe_msg_t));
         }
         json_object_put(chat_obj);
     }
@@ -206,6 +209,7 @@ void chat_manager(sock_fd_t client_sock, int client_idx) {
 
         if (recv_obj == NULL) {
             free(msg_raw);
+            msg_raw = NULL;
             continue;
         }
 
@@ -234,7 +238,7 @@ void chat_manager(sock_fd_t client_sock, int client_idx) {
         }
         else if (recv_msg.type == CREATE) {
             int room_port;
-            if ((room_port = create_chat(recv_msg)) > 0) {
+            if ((room_port = create_chat(recv_msg, client_idx)) > 0) {
                 if (join_chat(client_sock, recv_msg) > 0) {
                     send_msg.type = SUCCESS;
                     send_msg.chat_port = room_port;
@@ -254,12 +258,6 @@ void chat_manager(sock_fd_t client_sock, int client_idx) {
             send_dynamic_data_tcp(client_sock, (char*)json_object_get_string(send_obj));
             
             json_object_put(send_obj);
-
-            int fire_all_update = SIGUSR1;
-
-            // if (send_msg.type == SUCCESS) {
-            //     write(ENV.clients_pipe.pipe_arr[client_idx][1], &fire_all_update, sizeof(int));
-            // }
         }
 
         json_object_put(recv_obj);

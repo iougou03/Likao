@@ -41,4 +41,13 @@ struct log_item_json_t {
     char *msg;
 };
 
+typedef enum {
+    CREATE_CHILD
+} pipe_msg_code;
+
+struct pipe_msg_t {
+    pipe_msg_code type;
+    int port;
+};
+
 #endif

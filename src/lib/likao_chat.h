@@ -24,7 +24,8 @@ struct to_server_chat_msg_t {
 };
 
 struct to_server_log_msg_t {
-
+    char *name;
+    char *message;
 };
 
 typedef enum {

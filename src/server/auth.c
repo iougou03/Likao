@@ -152,6 +152,7 @@ int pth_auth(sock_fd_t client_sock) {
             char *buffer = NULL;
             
             if (recv_dynamic_data_tcp(client_sock, &buffer) != -1) {
+                clean_socket_buffer(client_sock);
                 if (flag == 0) running = 0;
                 break;
             }
@@ -164,7 +165,6 @@ int pth_auth(sock_fd_t client_sock) {
             sleep(1);
         }
         json_object_put(send_obj);
-        clean_socket_buffer(client_sock);
 
         if (send_msg.message != NULL)
             free(send_msg.message);

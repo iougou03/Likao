@@ -128,6 +128,7 @@
                       <object class="GtkEntry" id="password_entry">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
+                        <property name="visibility">False</property>
                         <property name="placeholder_text" translatable="yes">type pass word here</property>
                         <property name="input_purpose">password</property>
                       </object>
@@ -286,7 +287,14 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <placeholder/>
+                      <object class="GtkBox" id="chat_log_box">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="orientation">vertical</property>
+                        <child>
+                          <placeholder/>
+                        </child>
+                      </object>
                     </child>
                   </object>
                 </child>

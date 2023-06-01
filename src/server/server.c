@@ -48,15 +48,7 @@ void server_on() {
     server_addr.sin_port = htons(DEFAULT_PORT);
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    int flags = fcntl(server_sock, F_GETFL);
-    if (flags == -1) {
-        perror("Failed to get socket flags");
-        exit(1);
-    }
-    if (fcntl(server_sock, F_SETFL, flags | O_NONBLOCK) == -1) {
-        perror("Failed to set socket to non-blocking mode");
-        exit(1);
-    }
+    tcp_non_block(server_sock);
 
     if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("bind");
@@ -78,54 +70,45 @@ void server_on() {
     fd_set read_set;
     FD_ZERO(&read_set);
 
-    int signal_code, bytes_received;
-
     while (1) {
         client_size = sizeof(client_addr);
         
-        // for (int i = 0 ; i < ENV.clients_pipe.len ; i++) {
-        //     bytes_received = read(ENV.clients_pipe.pipe_arr[i][0], &signal_code, sizeof(int));
-        //     if (bytes_received > 0) {
-        //         chat_room_updated();
-        //         break;
-        //     }
-        //     if (bytes_received == -1) {
-                // close(ENV.clients_pipe.data[i][0]);
-                // close(ENV.clients_pipe.data[i][1]);
+        for (int i = 0 ; i < ENV.clients_pipe.len ; i++) {
+            struct pipe_msg_t pmsg;
+            int read_fd = ENV.clients_pipe.pipe_arr[i][0];
+            int bytes = read(read_fd, &pmsg, sizeof(struct pipe_msg_t));
 
-                // free(ENV.clients_pipe.data[i]);
-                // for (int j = i + 1 ; j < ENV.clients_pipe.len ; j++) {
-                //     ENV.clients_pipe.data[j - 1] = ENV.clients_pipe.data[j];
-                // }
-                // ENV.clients_pipe.data= realloc(ENV.clients_pipe.data, sizeof(int**) * --ENV.clients_pipe.len); 
-                // break;
-        //     }
-        // }
+            if (bytes > 0) {
+                if (pmsg.type == CREATE_CHILD) {
+                    child_server(pmsg.port);
+                }
+            }
+        }
 
         if ((client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_size)) == -1) {
             sleep(1);
             continue;
         }
 
-        ENV.clients_pipe.pipe_arr = realloc(ENV.clients_pipe.pipe_arr, sizeof(int**) * ++ENV.clients_pipe.len);
-        ENV.clients_pipe.pipe_arr[ENV.clients_pipe.len - 1] = (int*)malloc(sizeof(int) * 2);
-        ENV.clients_pipe.tid_arr = realloc(ENV.clients_pipe.pipe_arr, sizeof(int) * ENV.clients_pipe.len);
-
-        struct client_args args = { ENV.clients_pipe.len - 1, client_sock };
+        int plen = ENV.clients_pipe.len;
+        ENV.clients_pipe.pipe_arr = realloc(ENV.clients_pipe.pipe_arr, sizeof(int**) * (plen + 1));
+        ENV.clients_pipe.pipe_arr[plen] = (int*)malloc(sizeof(int) * 2);
+        ENV.clients_pipe.tid_arr = realloc(ENV.clients_pipe.tid_arr, sizeof(int) * (plen + 1));
+        ENV.clients_pipe.len++;
+        struct client_args args = { plen, client_sock };
 
         if (pthread_create(&thread_id, NULL, client_tcp_handler, (void*)&args) == -1) {
             perror("pthread_create");
             continue;
         }
+        pthread_detach(thread_id);
         
-        if (pipe(ENV.clients_pipe.pipe_arr[ENV.clients_pipe.len - 1]) == -1) {
+        if (pipe(ENV.clients_pipe.pipe_arr[plen]) == -1) {
             pthread_cancel(thread_id);
         }
         else {
-            tcp_non_block(ENV.clients_pipe.pipe_arr[ENV.clients_pipe.len - 1][0]);
-            FD_SET(ENV.clients_pipe.pipe_arr[ENV.clients_pipe.len - 1][0], &read_set);
-            ENV.clients_pipe.tid_arr[ENV.clients_pipe.len - 1] = thread_id;
-            pthread_detach(thread_id);
+            tcp_non_block(ENV.clients_pipe.pipe_arr[plen][0]);
+            ENV.clients_pipe.tid_arr[plen] = thread_id;
         }
         
     }
@@ -144,7 +127,7 @@ void *client_tcp_handler(void *args) {
 
     if (pth_auth(client_sock) == 0)
         chat_manager(client_sock, argsp->idx);
-
+    
     shutdown(client_sock, SHUT_RDWR);
 
     return NULL;

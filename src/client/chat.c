@@ -192,30 +192,30 @@ void *async_chat_manager_pth(void* args) {
 
     tcp_non_block(chat_server_sockg);
 
-    while (chat_close == 0) {
+    while (!chat_close) {
         char *buffer = NULL;
-        if (recv_dynamic_data_tcp(chat_server_sockg, &buffer) != 0) {
-            struct json_object *recv_obj = json_tokener_parse(buffer);
+        if (recv_dynamic_data_tcp(chat_server_sockg, &buffer) == -1) {
+            sleep(1);
+            continue;
+        }
 
-            if (recv_obj != NULL) {
-                struct to_client_chat_msg_t recv_msg = { -1, -1 };
+        struct json_object *recv_obj = json_tokener_parse(buffer);
+        if (recv_obj != NULL) {
+            struct to_client_chat_msg_t recv_msg = { -1, -1 };
 
-                json_to_struct_chat(recv_obj, &recv_msg);
-                if (recv_msg.type == SUCCESS && recv_msg.chat_port > 0) {
-                    chat_close = 1;
-                    room_portg = recv_msg.chat_port;
-                }
+            json_to_struct_chat(recv_obj, &recv_msg);
+            if (recv_msg.type == SUCCESS && recv_msg.chat_port > 0) {
+                // chat_close = 1;
+                room_portg = recv_msg.chat_port;
+                pthread_kill(main_thread, SIGUSR2);
             }
+
             chat_thread_running = 0;
 
             free(buffer);
             json_object_put(recv_obj);
         }
-        sleep(1);
     }
-
-    pthread_kill(main_thread, SIGUSR2);
-
     pthread_exit(NULL);
 }
 
@@ -229,22 +229,77 @@ void enter_log(GtkWidget *button, gpointer user_data) {
 
     const gchar *log = gtk_entry_get_text(chat_log_entry);
 
-    printf("sending %s %d\n", log, room_portg);
-    socklen_t size = sizeof(struct sockaddr_in);
-    ssize_t sent_bytes = sendto(child_chat_sockg, log, strlen(log), 0,
-                                (struct sockaddr *)&child_chat_addrg, size);
+    struct json_object *j_obj = json_object_new_object();
+    json_object_object_add(j_obj, "name", json_object_new_string(chat_userg.name));
+    json_object_object_add(j_obj, "message", json_object_new_string(log));
+
+    send_dynamic_data_tcp(child_chat_sockg, (char*)json_object_get_string(j_obj));
     
     gtk_entry_set_text(GTK_ENTRY(chat_log_entry), "");
-    
-    if (sent_bytes == -1) {
-        perror("Failed to send data");
-        return;
+}
+
+void log_json_to_struct(struct json_object* j_obj, struct to_server_log_msg_t *msgp) {
+    json_object_object_foreach(j_obj, key, val) {
+        if (strcmp(key, "name") == 0) {
+            char *name = (char*)json_object_get_string(val);
+            dynamic_string_copy(&(msgp->name), name);
+        }
+        else if (strcmp(key, "message") == 0) {
+            char *message = (char*)json_object_get_string(val);
+            dynamic_string_copy(&(msgp->message), message);
+        }
     }
-    
+}
+
+void *async_chat_mode_pth(void* args) {
+    while (1) {
+        char *buffer = NULL;
+        if (recv_dynamic_data_tcp(child_chat_sockg, &buffer) == -1) 
+            break;
+
+        if (buffer > 0) {
+            struct json_object *msg_obj = json_tokener_parse(buffer);
+
+            if (msg_obj != NULL) {
+                GtkWidget *log_box = GTK_WIDGET(gtk_builder_get_object(builderg,"chat_log_box"));
+                
+                struct to_server_log_msg_t recv_msg = { NULL, NULL };
+                log_json_to_struct(msg_obj, &recv_msg);
+
+                char *label_text = NULL;
+                if (strcmp(recv_msg.message, "welcome") == 0) {
+                    char *wel_msg = " has entered!";
+                    label_text = (char*)malloc(sizeof(char) * (strlen(recv_msg.name) + strlen(wel_msg) + 1));
+                    sprintf(label_text, "%s%s", recv_msg.name, wel_msg);
+                }
+                else {
+                    label_text = (char*)malloc(sizeof(char) * (strlen(recv_msg.name) + 5 + strlen(recv_msg.message) + 1));
+                    sprintf(label_text, "[%s] : %s", recv_msg.name, recv_msg.message);
+                }
+
+                GtkWidget *label = gtk_label_new(label_text);
+
+                gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
+                gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+                gtk_container_set_border_width(GTK_CONTAINER(log_box), 16);
+                gtk_box_pack_start(GTK_BOX(log_box), label, FALSE, TRUE, 0);
+                gtk_widget_show_all(windowg);
+
+                json_object_put(msg_obj);
+                free(label_text);
+            }
+            free(buffer);
+        }
+    }
+
+    pthread_exit(NULL);
 }
 
 void chat_mode() {
     gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page3");
+
+    GtkWidget *scrolled_window = GTK_WIDGET(gtk_builder_get_object(builderg, "chat_log_scrolled_window"));
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
     // Create a UDP socket
     if ((child_chat_sockg = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
@@ -268,6 +323,7 @@ void chat_mode() {
 
     struct json_object *welcome_obj = json_object_new_object();
     json_object_object_add(welcome_obj, "name", json_object_new_string(chat_userg.name));
+    json_object_object_add(welcome_obj, "message", json_object_new_string("welcome"));
     char *msg = (char*)json_object_get_string(welcome_obj);
 
     send_dynamic_data_tcp(child_chat_sockg, msg);
@@ -279,13 +335,20 @@ void chat_mode() {
     g_signal_connect(submit_button, "clicked", G_CALLBACK(enter_log), NULL);
 
     // close(child_chat_sock);
+    pthread_t thread_id;
+    if (pthread_create(&thread_id, NULL, async_chat_mode_pth, NULL) == -1) {
+        perror("pthread_create in chat program, please reopen program");
+    }
+    else {
+        pthread_detach(thread_id);
+    }
 }
 
 void chat_thread_done_callback(int signum) {
     chat_mode();
 
-    free(chat_userg.name);
-    free(chat_userg.password);
+    // free(chat_userg.name);
+    // free(chat_userg.password);
 }
 
 void chat_program(sock_fd_t server_sock, struct user_t user) {

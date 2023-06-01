@@ -1,117 +1,19 @@
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #include <sys/socket.h>
-// #include <netinet/in.h>
-// #include <unistd.h>
-// #include <sys/shm.h>
-// #include <sys/sem.h>
-// #include <sys/ipc.h>
-
-// #define MAX_CLIENTS 40
-
-// void child_server(int port) {
-//     sock_fd_t child_socket_fd, client_socks[MAX_CLIENTS];
-//     int client_cnt = 0;
-//     struct sockaddr_in server_addr, client_addr;
-
-//     child_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-
-//     if (child_socket_fd == -1) {
-//         perror("socket");
-//         exit(1);
-//     }
-
-//     memset(&server_addr, 0, sizeof(server_addr));
-//     server_addr.sin_family = AF_INET;
-//     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-//     server_addr.sin_port = htons(port);
-
-//     if (bind(child_socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr))== -1) {
-//         perror("bind");
-//         exit(1);
-//     }
-
-//     if (listen(child_socket_fd, MAX_CLIENTS) < 0) {
-//         perror("listen");
-//         exit(1);
-//     }
-
-//     printf("child UDP server open at port %d\n",port);
-
-//     while(1) {
-//          socklen_t client_addr_size = sizeof(client_addr);
-
-//         // Accept a new connection
-//         int clientSocket = accept(child_socket_fd, (struct sockaddr *)&client_addr, &client_addr_size);
-//         if (clientSocket < 0) {
-//             perror("Failed to accept connection");
-//             exit(EXIT_FAILURE);
-//         }
-
-//         printf("New client connected\n");
-
-//         // Add the new client socket to the array
-//         client_socks[client_cnt++] = clientSocket;
-
-//         pid_t pid = fork();
-//         if (pid < 0) {
-//             perror("Failed to fork");
-//             exit(EXIT_FAILURE);
-//         } else if (pid == 0) {
-//             // Child process handles the client
-
-//             char buffer = NULL;
-//             ssize_t bytesRead;
-
-//             while (1) {
-//                 // Receive data from the client
-//                 bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
-//                 if (bytesRead < 0) {
-//                     perror("Failed to receive data from client");
-//                     exit(EXIT_FAILURE);
-//                 } else if (bytesRead == 0) {
-//                     // Client has closed the connection
-//                     break;
-//                 }
-
-//                 // Process the received data (e.g., echo back to the client)
-//                 // ...
-
-//                 // Send a response to the client
-//                 ssize_t bytesSent = send(clientSocket, buffer, bytesRead, 0);
-//                 if (bytesSent < 0) {
-//                     perror("Failed to send data to client");
-//                     exit(EXIT_FAILURE);
-//                 }
-//             }
-
-//             // Close the client socket and exit the child process
-//             close(clientSocket);
-//             exit(0);
-//         } else {
-//             close(clientSocket);
-//         }
-//     }
-
-//     close(child_socket_fd);
-// }
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <json-c/json.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
 #include <sys/ipc.h>
+#include <pthread.h>
 
 #include "../lib/likao_chat.h"
 #include "../lib/likao_utils.h"
 
-#define MAX_CLIENTS 5
+#define MAX_CLIENTS 40
 #define BUFFER_SIZE 1024
 
 union semun {
@@ -121,8 +23,48 @@ union semun {
     struct seminfo *__buf;
 };
 
+struct client_info_args {
+    int clientSocket;
+    int* clientCount;
+};
+
+int clientSockets[MAX_CLIENTS];
+
+void *child_thread(void* args) {
+    struct client_info_args *argsp = (struct client_info_args*)args;
+
+    while (1) {
+        char *buffer = NULL;
+
+        if (recv_dynamic_data_tcp(argsp->clientSocket, &buffer) == -1) {
+            break;
+        }
+
+        if (buffer > 0) {
+            json_object *msg_obj = json_tokener_parse(buffer);
+
+            if (msg_obj != NULL) {
+                for (int i = 0; i < *argsp->clientCount; i++) {
+                    int client = clientSockets[i];
+                    send_dynamic_data_tcp(client, (char*)json_object_get_string(msg_obj));
+                }
+
+                json_object_put(msg_obj);
+            }
+        }
+
+        if (send(argsp->clientSocket, " ", sizeof(char), 0) == -1) {
+            break;
+        }
+    }
+
+    // Close the client socket and exit the child process
+    close(argsp->clientSocket);
+    pthread_exit(NULL);
+}
+
 void child_server(int port) {
-    int serverSocket, clientSockets[MAX_CLIENTS], maxClients = MAX_CLIENTS;
+    int serverSocket, maxClients = MAX_CLIENTS;
     struct sockaddr_in serverAddress, clientAddress;
 
     // Create server socket
@@ -185,38 +127,14 @@ void child_server(int port) {
         clientSockets[*clientCount] = clientSocket;
         (*clientCount)++;
 
-        // Fork a new process to handle the client
-        pid_t pid = fork();
-        if (pid < 0) {
-            perror("Failed to fork");
-            exit(EXIT_FAILURE);
-        } else if (pid == 0) {
-            // Child process handles the client
+        pthread_t thread_id;
+        struct client_info_args a = { clientSocket, clientCount};
 
-
-            while (1) {
-                char *buffer = NULL;
-                recv_dynamic_data_tcp(clientSocket, &buffer);
-
-                if (buffer < 0) {
-                    continue;
-                }
-
-                for (int i = 0; i < *clientCount; i++) {
-                    int client = clientSockets[i];
-                    if (client != clientSocket) {
-                        send_dynamic_data_tcp(clientSocket, "hello");
-                    }
-                }
-            }
-
-            // Close the client socket and exit the child process
-            close(clientSocket);
-            exit(EXIT_SUCCESS);
-        } else {
-            // Parent process continues to accept new connections
-            // Close the client socket (parent does not need it)
-            close(clientSocket);
+        if (pthread_create(&thread_id, NULL, child_thread, (void*)&a) == -1) {
+        perror("pthread_create, please reopen program");
+        }
+        else {
+            pthread_detach(thread_id);
         }
     }
 

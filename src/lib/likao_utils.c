@@ -59,7 +59,6 @@ void dynamic_string_copy(char **destp, char *src) {
 
 int send_dynamic_data_tcp (sock_fd_t fd, void* data) {
     size_t len = strlen(data);
-    printf("send_dynamic_data_tcp %s\n", (char*)data);
     int offset,
         chunk_len,
         num_chunks = len / CHUNK_SIZE + 1;
@@ -88,7 +87,6 @@ int send_dynamic_data_tcp (sock_fd_t fd, void* data) {
  * buffer는 반드시 NULL로 초기화 되어있어야 한다
 */
 int recv_dynamic_data_tcp(sock_fd_t fd, char **buffer) {
-    printf("recv_dynamic_data_tcp\n");
     int bytes_recv,
         chunk_size = CHUNK_SIZE;
     long int total_size = 0;

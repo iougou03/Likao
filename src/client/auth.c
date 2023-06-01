@@ -137,14 +137,15 @@ void *async_recv_pth(void* args) {
             struct json_object *check_msg_obj = json_tokener_parse("{\"status\":\"complete\"}");
             send_dynamic_data_tcp(server_sock, (void*)json_object_get_string(check_msg_obj));
             
-            if (recv_msg.message != NULL) free(recv_msg.message);
+            // if (recv_msg.message != NULL) free(recv_msg.message);
             
             json_object_put(check_msg_obj);
         
             free(buffer);
             json_object_put(recv_obj);
+    
+            clean_socket_buffer(server_sock);
         }
-        clean_socket_buffer(server_sock);
     }    
     pthread_kill(main_thread, SIGUSR1);
 
