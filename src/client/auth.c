@@ -114,7 +114,6 @@ void *async_recv_pth(void* args) {
 
         char *buffer = NULL;
         if (recv_dynamic_data_tcp(server_sock, &buffer) == -1) {
-            sleep(1);
             continue;
         }
 
@@ -153,7 +152,7 @@ void *async_recv_pth(void* args) {
 
 void auth_thread_done_callback(int signum) {
     tcp_block(server_sockg);
-    chat_program(server_sockg, auth_userg);
+    chat_program(server_sockg, &auth_userg);
 }
 
 void auth(sock_fd_t *server_sockp, struct user_t *userp) {

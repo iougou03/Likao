@@ -81,12 +81,12 @@ void server_on() {
             if (bytes > 0) {
                 if (pmsg.type == CREATE_CHILD) {
                     child_server(pmsg.port);
+                    break;
                 }
             }
         }
 
         if ((client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_size)) == -1) {
-            sleep(1);
             continue;
         }
 

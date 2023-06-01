@@ -15,7 +15,7 @@
 #include "./utils.h"
 
 int chat_thread_running = 0;
-struct user_t chat_userg = { NULL, NULL };
+struct user_t chat_userg;
 sock_fd_t chat_server_sockg;
 pthread_t main_thread;
 
@@ -81,7 +81,7 @@ void on_chat_button_leave(GtkWidget *button, gpointer user_data) {
     gdk_window_set_cursor(gtk_widget_get_window(button), cursor);
 }
 
-void create_chat_room_item(GtkWidget *button, gpointer user_data) {
+void on_create_chat_room_button_clicked(GtkWidget *button, gpointer user_data) {
     if (chat_thread_running) return;
 
     GtkWidget *dialog = gtk_dialog_new_with_buttons("Type new chat room name",
@@ -356,23 +356,22 @@ void chat_thread_done_callback(int signum) {
     // free(chat_userg.password);
 }
 
-void chat_program(sock_fd_t server_sock, struct user_t user) {
+void chat_program(sock_fd_t server_sock, struct user_t *user) {
     main_thread = pthread_self();
     chat_server_sockg = server_sock;
-    dynamic_string_copy(&chat_userg.name, user.name);
-    dynamic_string_copy(&chat_userg.password, user.password);
+    chat_userg.name = NULL;
+    chat_userg.password = NULL;
 
-    gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page2");
+    dynamic_string_copy(&chat_userg.name, user->name);
+    dynamic_string_copy(&chat_userg.password, user->password);
 
     GtkWidget *submit_button = GTK_WIDGET(gtk_builder_get_object(builderg, "create_chat_room_button"));
 
-    g_signal_connect(submit_button, "clicked", G_CALLBACK(create_chat_room_item), GINT_TO_POINTER(server_sock));
+    g_signal_connect(submit_button, "clicked", G_CALLBACK(on_create_chat_room_button_clicked), GINT_TO_POINTER(server_sock));
     g_signal_connect(submit_button, "enter-notify-event", G_CALLBACK(on_chat_button_enter), NULL);
     g_signal_connect(submit_button, "leave-notify-event", G_CALLBACK(on_chat_button_leave), NULL);
 
     signal(SIGUSR2, chat_thread_done_callback);
-    
-    print_chat_list(&server_sock);
 
     pthread_t thread_id;
     if (pthread_create(&thread_id, NULL, async_chat_manager_pth, NULL) == -1) {
@@ -381,4 +380,8 @@ void chat_program(sock_fd_t server_sock, struct user_t user) {
     else {
         pthread_detach(thread_id);
     }
+
+    gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page2");
+
+    print_chat_list(&server_sock);
 }
