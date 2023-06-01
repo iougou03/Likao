@@ -71,6 +71,7 @@ void server_on() {
     FD_ZERO(&read_set);
 
     while (1) {
+        fflush(stdout);
         client_size = sizeof(client_addr);
         
         for (int i = 0 ; i < ENV.clients_pipe.len ; i++) {
@@ -80,7 +81,17 @@ void server_on() {
 
             if (bytes > 0) {
                 if (pmsg.type == CREATE_CHILD) {
-                    child_server(pmsg.port);
+                    // ENV.child_pids = (int*)malloc(sizeof(int) * ENV.childs_cnt);
+                    // ENV.child_ports = (int*)malloc(sizeof(int) * ENV.childs_cnt);
+
+                    pid_t pid = fork();
+                    if (pid < 0) {
+                        perror("fork");
+                    }
+                    else if (pid == 0) {
+                        child_server(pmsg.port);
+                        exit(0);
+                    }
                     break;
                 }
             }
@@ -136,7 +147,7 @@ void *client_tcp_handler(void *args) {
 void create_chats_process() {
     DIR *dir_ptr;
     struct dirent *direntp;
-    int chats_cnt = 0, len = 0;
+    int len = 0;
     char *room_name;
 
     if ((dir_ptr = opendir("chats")) == NULL) {
@@ -146,7 +157,7 @@ void create_chats_process() {
 
     while ((direntp = readdir(dir_ptr)) != NULL) {
         if (strstr(direntp->d_name, ".json") != NULL) {
-            chats_cnt++;
+            ENV.childs_cnt++;
             len = strlen(direntp->d_name) - 5;
             room_name = (char*)malloc(sizeof(char) * len);
 
@@ -158,10 +169,10 @@ void create_chats_process() {
 
     closedir(dir_ptr);
 
-    ENV.child_pids = (int*)malloc(sizeof(int) * chats_cnt);
-    ENV.child_ports = (int*)malloc(sizeof(int) * chats_cnt);
+    ENV.child_pids = (int*)malloc(sizeof(int) * ENV.childs_cnt);
+    ENV.child_ports = (int*)malloc(sizeof(int) * ENV.childs_cnt);
 
-    for (int i = 0 ; i < chats_cnt ;) {
+    for (int i = 0 ; i < ENV.childs_cnt ;) {
         pid_t pid = fork();
         if (pid < 0) {
             perror("fork");

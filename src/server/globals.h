@@ -6,6 +6,7 @@
 
 struct env_t {
     int max_password_cnt;
+    int childs_cnt;
     int *child_pids;
     int *child_ports;
     struct string_arr_t child_names;

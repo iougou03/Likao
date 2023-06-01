@@ -56,6 +56,7 @@ void init(char* filename) {
     signal(SIGPIPE, SIG_IGN);
 
     ENV.max_password_cnt = 20;
+    ENV.childs_cnt = 0;
     ENV.child_pids = NULL;
     ENV.child_ports = NULL;
     struct string_arr_t str_arr = { NULL, 0 };

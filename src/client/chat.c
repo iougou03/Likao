@@ -151,7 +151,7 @@ void print_chat_list(sock_fd_t *server_sockp) {
     if (json_object_is_type(chat_list_arr, json_type_array)) {
         GtkWidget *scrolled_window = GTK_WIDGET(gtk_builder_get_object(builderg, "chat_list_scrolled_window"));
         gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-        // clear_scrolled_window(scrolled_window);
+        clear_scrolled_window(scrolled_window);
 
         GtkWidget *scrolled_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
         int len = json_object_array_length(chat_list_arr);
