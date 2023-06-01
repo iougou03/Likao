@@ -18,17 +18,25 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
 
 ## How to
 
-1. 서버로 작동시킬 머신의 IP주소를 ./src/main.c 내 아래 줄에 입력할 것
+1. 서버로 작동시킬 머신의 IP주소를 ./src/server/main.c 내 아래 줄에 입력할 것
     
     ```c
     72 |    dynamic_string_copy(&SERVER_IP_ADDRESS, /* IP_ADDRESS */);
     ```
 
-2. make
+2. make 로 빌드 (dist folder 생성)
 
-3. dist/server/ 로 cd한 후 ./server 실행
+3. server machine 에서 dist/server/ 로 cd한 후 ./server 실행
 
-4. dist/client/ 로 cd한 후 ./cliet 실행
+4. client machine 에서 dist/client/ 로 cd한 후 ./cliet 실행
+
+
+### features
+    
+    1. 채팅서비스 가입 및 접속
+
+    2. 채팅방 접속 및 채팅
+
 
 
 ### Author
