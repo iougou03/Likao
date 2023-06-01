@@ -146,7 +146,8 @@ void *async_recv_pth(void* args) {
     
             clean_socket_buffer(server_sock);
         }
-    }    
+    }
+
     pthread_kill(main_thread, SIGUSR1);
 
     pthread_exit(NULL);
@@ -158,6 +159,8 @@ void auth_thread_done_callback(int signum) {
 }
 
 void auth(sock_fd_t *server_sockp, struct user_t *userp) {
+    signal(SIGUSR1, auth_thread_done_callback);
+
     main_thread = pthread_self();
     server_sockg = *server_sockp;
 
@@ -170,8 +173,6 @@ void auth(sock_fd_t *server_sockp, struct user_t *userp) {
     g_signal_connect(submit_button, "clicked", G_CALLBACK(submit_clicked), GINT_TO_POINTER(*server_sockp));
     g_signal_connect(submit_button, "enter-notify-event", G_CALLBACK(on_button_enter), NULL);
     g_signal_connect(submit_button, "leave-notify-event", G_CALLBACK(on_button_leave), NULL);
-
-    signal(SIGUSR1, auth_thread_done_callback);
 
     pthread_t thread_id;
     if (pthread_create(&thread_id, NULL, async_recv_pth, (void*)server_sockp) == -1) {

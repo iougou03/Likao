@@ -58,6 +58,7 @@ void dynamic_string_copy(char **destp, char *src) {
 
 
 int send_dynamic_data_tcp (sock_fd_t fd, void* data) {
+    printf("send_dynamic_data_tcp %s\n",(char*)data);
     size_t len = strlen(data);
     int offset,
         chunk_len,
@@ -90,7 +91,7 @@ int recv_dynamic_data_tcp(sock_fd_t fd, char **buffer) {
     int bytes_recv,
         chunk_size = CHUNK_SIZE;
     long int total_size = 0;
-
+    printf("recv_dynamic_data_tcp\n");
     while (1) {
         *buffer = realloc(*buffer, total_size + chunk_size);
         bytes_recv = recv(fd, *buffer + total_size, chunk_size, 0);
@@ -111,6 +112,7 @@ int recv_dynamic_data_tcp(sock_fd_t fd, char **buffer) {
     if (total_size > 0) {
         *buffer = realloc(*buffer, total_size + 1);
         (*buffer)[total_size] = '\0';
+        printf("recv_dynamic_data_tcp %s\n", *buffer);
         
         return total_size;
     }
