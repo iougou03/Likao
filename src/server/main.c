@@ -13,13 +13,7 @@
 #include "./globals.h"
 #include "./server.h"
 
-struct env_t ENV = {
-    40,
-    NULL,
-    NULL,
-    { NULL, 0 },
-    { NULL, 0 }
-};
+struct env_t ENV;
 
 int main(int argc, char** argv) {
     void init(char*);
@@ -61,6 +55,13 @@ void init(char* filename) {
     signal(SIGTERM, terminate);
     signal(SIGPIPE, SIG_IGN);
 
+    ENV.max_password_cnt = 20;
+    ENV.child_pids = NULL;
+    ENV.child_ports = NULL;
+    struct string_arr_t str_arr = { NULL, 0 };
+    ENV.child_names = str_arr;
+    struct client_arr_t clt_arr = { NULL, 0, NULL};
+    ENV.clients_pipe = clt_arr;
     if (pthread_mutex_init(&ENV.mutex, NULL) != 0) {
         fprintf(stderr, "Failed to initialize mutex\n");
         exit(0);

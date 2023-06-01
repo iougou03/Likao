@@ -140,11 +140,9 @@ void *async_recv_pth(void* args) {
             if (recv_msg.message != NULL) free(recv_msg.message);
             
             json_object_put(check_msg_obj);
-        
-            free(buffer);
             json_object_put(recv_obj);
-    
-            clean_socket_buffer(server_sock);
+            
+            free(buffer);
         }
     }
 
@@ -159,6 +157,7 @@ void auth_thread_done_callback(int signum) {
 }
 
 void auth(sock_fd_t *server_sockp, struct user_t *userp) {
+    printf("connected\n");
     signal(SIGUSR1, auth_thread_done_callback);
 
     main_thread = pthread_self();

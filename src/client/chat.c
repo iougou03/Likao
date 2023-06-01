@@ -15,7 +15,7 @@
 #include "./utils.h"
 
 int chat_thread_running = 0;
-struct user_t chat_userg;
+struct user_t chat_userg = { NULL, NULL };
 sock_fd_t chat_server_sockg;
 pthread_t main_thread;
 
