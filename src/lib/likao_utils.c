@@ -46,6 +46,7 @@ void string_arr_free(struct string_arr_t* arr) {
 }
 
 void dynamic_string_copy(char **destp, char *src) {
+    *destp = NULL;
     char *temp = realloc(*destp, sizeof(char) * (strlen(src) + 1));
     if (temp == NULL) {
         fprintf(stderr, "Failed to allocate memory for string copy\n");

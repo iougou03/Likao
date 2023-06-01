@@ -266,11 +266,12 @@ void *async_chat_mode_pth(void* args) {
     json_object_put(welcome_obj);
 
     while (1) {
+        int bytes;
         char *buffer = NULL;
-        if (recv_dynamic_data_tcp(child_chat_sockg, &buffer) == -1) 
+        if ((bytes = recv_dynamic_data_tcp(child_chat_sockg, &buffer)) == -1) 
             break;
 
-        if (buffer > 0) {
+        if (bytes > 0) {
             struct json_object *msg_obj = json_tokener_parse(buffer);
 
             if (msg_obj != NULL) {
