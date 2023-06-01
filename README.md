@@ -18,7 +18,19 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
 
 ## How to
 
-1. 서버로 작동시킬 머신의 IP주소를 ./src/server/main.c 내 아래 줄에 입력할 것
+1. dependencies 깔기
+
+    after update & upgrade apt
+
+    ```bash
+    sudo apt install gcc
+    sudo apt install git
+    sudo apt install make
+    sudo apt install libjson-c-dev
+    sudo apt install libgtk-3-dev
+    ```
+
+1. 서버로 작동시킬 머신의 IP주소를 ./src/dist/main.c 내 아래 줄에 입력할 것
     
     ```c
     72 |    dynamic_string_copy(&SERVER_IP_ADDRESS, /* IP_ADDRESS */);
@@ -33,9 +45,9 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
 
 ### features
     
-    1. 채팅서비스 가입 및 접속
+1. 채팅서비스 가입 및 접속
 
-    2. 채팅방 접속 및 채팅
+2. 채팅방 접속 및 채팅
 
 
 
