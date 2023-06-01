@@ -143,10 +143,7 @@ void print_chat_list(sock_fd_t *server_sockp) {
 
     struct json_object *chat_list_arr = json_tokener_parse(msg_raw);
 
-    if (chat_list_arr == NULL) {
-        free(msg_raw);
-        return;
-    }
+    if (chat_list_arr == NULL) return;
 
     if (json_object_is_type(chat_list_arr, json_type_array)) {
         GtkWidget *scrolled_window = GTK_WIDGET(gtk_builder_get_object(builderg, "chat_list_scrolled_window"));
