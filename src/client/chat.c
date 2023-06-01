@@ -138,8 +138,11 @@ void join_button_handler(GtkWidget *button, gpointer user_data) {
 }
 
 void print_chat_list(sock_fd_t *server_sockp) {
+    int bytes_recv;
     char *msg_raw = NULL;
-    recv_dynamic_data_tcp(*server_sockp, &msg_raw);
+    if ((bytes_recv = recv_dynamic_data_tcp(*server_sockp, &msg_raw)) == -1) return;
+
+    if (bytes_recv == 0) return;
 
     struct json_object *chat_list_arr = json_tokener_parse(msg_raw);
 
@@ -148,7 +151,7 @@ void print_chat_list(sock_fd_t *server_sockp) {
     if (json_object_is_type(chat_list_arr, json_type_array)) {
         GtkWidget *scrolled_window = GTK_WIDGET(gtk_builder_get_object(builderg, "chat_list_scrolled_window"));
         gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-        clear_scrolled_window(scrolled_window);
+        // clear_scrolled_window(scrolled_window);
 
         GtkWidget *scrolled_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
         int len = json_object_array_length(chat_list_arr);
@@ -176,8 +179,9 @@ void print_chat_list(sock_fd_t *server_sockp) {
 
         gtk_widget_show_all(windowg);
     }
-    json_object_put(chat_list_arr);
+
     free(msg_raw);
+    json_object_put(chat_list_arr);
 }
 
 void json_to_struct_chat(struct json_object *j_obj, struct to_client_chat_msg_t *msgp) {
@@ -192,33 +196,36 @@ void json_to_struct_chat(struct json_object *j_obj, struct to_client_chat_msg_t 
 }
 
 void *async_chat_manager_pth(void* args) {
-    int chat_close = 0;
+    int chat_close = 0, bytes;
 
     tcp_non_block(chat_server_sockg);
 
     while (!chat_close) {
         char *buffer = NULL;
-        if (recv_dynamic_data_tcp(chat_server_sockg, &buffer) == -1) {
+        if ((bytes = recv_dynamic_data_tcp(chat_server_sockg, &buffer)) == -1) {
             sleep(1);
             continue;
         }
 
-        struct json_object *recv_obj = json_tokener_parse(buffer);
-        if (recv_obj != NULL) {
-            struct to_client_chat_msg_t recv_msg = { -1, -1 };
+        if (bytes > 0) {
+            struct json_object *recv_obj = json_tokener_parse(buffer);
+            if (recv_obj != NULL && json_object_is_type(recv_obj, json_type_object)) {
+                struct to_client_chat_msg_t recv_msg = { -1, -1 };
 
-            json_to_struct_chat(recv_obj, &recv_msg);
-            if (recv_msg.type == SUCCESS && recv_msg.chat_port > 0) {
-                // chat_close = 1;
-                room_portg = recv_msg.chat_port;
-                pthread_kill(main_thread, SIGUSR2);
+                json_to_struct_chat(recv_obj, &recv_msg);
+                if (recv_msg.type == SUCCESS && recv_msg.chat_port > 0) {
+                    // chat_close = 1;
+                    room_portg = recv_msg.chat_port;
+                    pthread_kill(main_thread, SIGUSR2);
+                }
+
+                chat_thread_running = 0;
+
+                free(buffer);
+                json_object_put(recv_obj);
             }
-
-            chat_thread_running = 0;
-
-            free(buffer);
-            json_object_put(recv_obj);
         }
+
     }
     pthread_exit(NULL);
 }
@@ -274,7 +281,7 @@ void *async_chat_mode_pth(void* args) {
         if (bytes > 0) {
             struct json_object *msg_obj = json_tokener_parse(buffer);
 
-            if (msg_obj != NULL) {
+            if (msg_obj != NULL && json_object_is_type(msg_obj, json_type_object)) {
                 GtkWidget *log_box = GTK_WIDGET(gtk_builder_get_object(builderg,"chat_log_box"));
                 
                 struct to_server_log_msg_t recv_msg = { NULL, NULL };
@@ -373,6 +380,10 @@ void chat_program(sock_fd_t server_sock, struct user_t *user) {
 
     signal(SIGUSR2, chat_thread_done_callback);
 
+    gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page2");
+
+    print_chat_list(&server_sock);
+
     pthread_t thread_id;
     if (pthread_create(&thread_id, NULL, async_chat_manager_pth, NULL) == -1) {
         perror("pthread_create in chat program, please reopen program");
@@ -381,7 +392,4 @@ void chat_program(sock_fd_t server_sock, struct user_t *user) {
         pthread_detach(thread_id);
     }
 
-    gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page2");
-
-    print_chat_list(&server_sock);
 }

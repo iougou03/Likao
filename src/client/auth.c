@@ -109,6 +109,8 @@ void *async_recv_pth(void* args) {
     int auth_close = 0;
     sock_fd_t server_sock = *((sock_fd_t*)args);
 
+    tcp_non_block(server_sock);
+
     while (auth_close == 0) {
         if (!auth_thread_running) continue;
 
@@ -145,13 +147,14 @@ void *async_recv_pth(void* args) {
         }
     }
 
+    tcp_block(server_sockg);
+
     pthread_kill(main_thread, SIGUSR1);
 
     pthread_exit(NULL);
 }
 
 void auth_thread_done_callback(int signum) {
-    tcp_block(server_sockg);
     chat_program(server_sockg, &auth_userg);
 }
 
@@ -165,8 +168,6 @@ void auth(sock_fd_t *server_sockp, struct user_t *userp) {
     gtk_stack_set_visible_child_name(GTK_STACK(stackg), "page1");
 
     GtkWidget *submit_button = GTK_WIDGET(gtk_builder_get_object(builderg, "submit_button"));
-
-    tcp_non_block(*server_sockp);
 
     g_signal_connect(submit_button, "clicked", G_CALLBACK(submit_clicked), GINT_TO_POINTER(*server_sockp));
     g_signal_connect(submit_button, "enter-notify-event", G_CALLBACK(on_button_enter), NULL);
