@@ -259,6 +259,15 @@ void log_json_to_struct(struct json_object* j_obj, struct to_server_log_msg_t *m
 }
 
 void *async_chat_mode_pth(void* args) {
+    struct json_object *welcome_obj = json_object_new_object();
+    json_object_object_add(welcome_obj, "name", json_object_new_string(chat_userg.name));
+    json_object_object_add(welcome_obj, "message", json_object_new_string("welcome"));
+    char *msg = (char*)json_object_get_string(welcome_obj);
+
+    send_dynamic_data_tcp(child_chat_sockg, msg);
+
+    json_object_put(welcome_obj);
+
     while (1) {
         char *buffer = NULL;
         if (recv_dynamic_data_tcp(child_chat_sockg, &buffer) == -1) 
@@ -327,15 +336,6 @@ void chat_mode() {
         perror("Failed to connect to the server");
         exit(EXIT_FAILURE);
     }
-
-    struct json_object *welcome_obj = json_object_new_object();
-    json_object_object_add(welcome_obj, "name", json_object_new_string(chat_userg.name));
-    json_object_object_add(welcome_obj, "message", json_object_new_string("welcome"));
-    char *msg = (char*)json_object_get_string(welcome_obj);
-
-    send_dynamic_data_tcp(child_chat_sockg, msg);
-
-    json_object_put(welcome_obj);
 
     GtkWidget *submit_button = GTK_WIDGET(gtk_builder_get_object(builderg, "submit_chat_log_button"));
 
