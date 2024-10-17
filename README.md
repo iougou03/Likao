@@ -50,16 +50,6 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
 2. 채팅방 접속 및 채팅
 
 
-
-### Author
-
-1. 권해솔
-
-2. 천시현 
-
-3. 김소영
-
-
 #### etc.
 
 total code lines: 2878 (running git ls-files | xargs wc -)
