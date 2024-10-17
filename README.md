@@ -20,8 +20,6 @@ Server는 main process에서 chat방 1:1 대응으로 process 생성
 
 1. dependencies 깔기
 
-    after update & upgrade apt
-
     ```bash
     sudo apt install gcc
     sudo apt install git
